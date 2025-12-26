@@ -6,6 +6,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from urllib.parse import parse_qs
 from .audit_log import AuditLog, get_client_ip
+from rest_framework import status as drf_status
 import time
 
 User = get_user_model()
@@ -192,11 +193,32 @@ class SecurityHeadersMiddleware:
 class RateLimitMiddleware:
     """
     Middleware simple de rate limiting para prevenir ataques de fuerza bruta.
+    
+    NOTA IMPORTANTE: Esta implementación usa memoria en proceso y NO es adecuada
+    para entornos de producción con múltiples procesos/servidores.
+    
+    Para producción, reemplazar con:
+    - Django-ratelimit: https://django-ratelimit.readthedocs.io/
+    - Django REST framework throttling con Redis backend
+    - Django-redis para caché distribuido
+    
+    Ejemplo con DRF throttling (recomendado):
+        REST_FRAMEWORK = {
+            'DEFAULT_THROTTLE_CLASSES': [
+                'rest_framework.throttling.AnonRateThrottle',
+                'rest_framework.throttling.UserRateThrottle'
+            ],
+            'DEFAULT_THROTTLE_RATES': {
+                'anon': '100/hour',
+                'user': '1000/hour'
+            }
+        }
     """
     
     def __init__(self, get_response):
         self.get_response = get_response
-        self.request_counts = {}  # En producción, usar Redis o similar
+        # ADVERTENCIA: En memoria, no persistente, no funciona con múltiples workers
+        self.request_counts = {}
         self.max_requests = 100  # Máximo de requests por ventana
         self.window_seconds = 60  # Ventana de tiempo en segundos
     

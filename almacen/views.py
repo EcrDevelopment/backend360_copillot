@@ -95,11 +95,18 @@ class GremisionConsultaView(APIView):
 class EmpresaViewSet(viewsets.ModelViewSet):
     """
     API endpoint para ver y editar Empresas.
-    Requiere autenticación para modificaciones, solo lectura pública.
+    Requiere autenticación para modificaciones.
     """
-    permission_classes = [IsAuthenticated | ReadOnly]
     queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
+    
+    def get_permissions(self):
+        """
+        Permite lectura sin autenticación, pero requiere autenticación para modificaciones.
+        """
+        if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
 class AlmacenViewSet(viewsets.ModelViewSet):
     """

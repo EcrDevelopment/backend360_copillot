@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken,AccessToken
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -106,7 +107,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         """Valida la fortaleza de la nueva contraseña usando InputValidator"""
         try:
             return InputValidator.validate_password_strength(value)
-        except Exception as e:
+        except ValidationError as e:
             raise serializers.ValidationError(str(e))
 
     def validate(self, attrs):
@@ -187,21 +188,21 @@ class UserSerializer(serializers.ModelSerializer):
         """Valida el nombre de usuario usando InputValidator"""
         try:
             return InputValidator.validate_username(value)
-        except Exception as e:
+        except ValidationError as e:
             raise serializers.ValidationError(str(e))
     
     def validate_email(self, value):
         """Valida el email usando InputValidator"""
         try:
             return InputValidator.validate_email(value)
-        except Exception as e:
+        except ValidationError as e:
             raise serializers.ValidationError(str(e))
     
     def validate_password(self, value):
         """Valida la fortaleza de la contraseña usando InputValidator"""
         try:
             return InputValidator.validate_password_strength(value)
-        except Exception as e:
+        except ValidationError as e:
             raise serializers.ValidationError(str(e))
 
     def validate(self, attrs):

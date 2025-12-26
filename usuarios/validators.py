@@ -7,6 +7,11 @@ from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
 from django.utils.html import escape
 
+# Constantes para validación de contraseñas
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_MAX_LENGTH = 128
+SPECIAL_CHARS_PATTERN = r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]]'
+
 
 class InputValidator:
     """
@@ -78,11 +83,11 @@ class InputValidator:
         if not password:
             raise ValidationError("La contraseña es requerida.")
         
-        if len(password) < 8:
-            raise ValidationError("La contraseña debe tener al menos 8 caracteres.")
+        if len(password) < PASSWORD_MIN_LENGTH:
+            raise ValidationError(f"La contraseña debe tener al menos {PASSWORD_MIN_LENGTH} caracteres.")
         
-        if len(password) > 128:
-            raise ValidationError("La contraseña no puede tener más de 128 caracteres.")
+        if len(password) > PASSWORD_MAX_LENGTH:
+            raise ValidationError(f"La contraseña no puede tener más de {PASSWORD_MAX_LENGTH} caracteres.")
         
         if not re.search(r'[A-Z]', password):
             raise ValidationError("La contraseña debe contener al menos una letra mayúscula.")
@@ -93,7 +98,7 @@ class InputValidator:
         if not re.search(r'[0-9]', password):
             raise ValidationError("La contraseña debe contener al menos un número.")
         
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]]', password):
+        if not re.search(SPECIAL_CHARS_PATTERN, password):
             raise ValidationError(
                 "La contraseña debe contener al menos un carácter especial (!@#$%^&*(),.?\":{}|<>_-+=[])"
             )
