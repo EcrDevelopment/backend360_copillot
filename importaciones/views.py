@@ -57,6 +57,7 @@ from rest_framework.views import APIView
 from django.contrib.contenttypes.models import ContentType
 from .utilities.dto_despacho import *
 import mimetypes
+from usuarios.permissions import CanAccessImportaciones, IsImportacionesAdmin, CanEditDocuments, CanDeleteResource
 
 
 
@@ -3378,9 +3379,13 @@ def generar_reporte_pdf_con_data_bd(data):
         return None  # O manejarlo según tus necesidades
 
 class DespachoDeleteView(generics.DestroyAPIView):
+    """
+    API endpoint para eliminar despachos.
+    Requiere permisos de administrador de importaciones.
+    """
     queryset = Despacho.objects.all()
     serializer_class = DespachoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanAccessImportaciones, CanDeleteResource]
 
     def delete(self, request, pk):
         try:
@@ -3411,7 +3416,12 @@ class DespachoDeleteView(generics.DestroyAPIView):
             )
 
 class ProcesarArchivoView(APIView):
+    """
+    API endpoint para procesar archivos de documentos.
+    Requiere permisos para editar documentos.
+    """
     parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [IsAuthenticated, CanEditDocuments]
 
     def post(self, request, *args, **kwargs):
         archivo = request.FILES.get('archivo')
@@ -3461,6 +3471,11 @@ class ProcesarArchivoView(APIView):
             return Response({'error': 'El archivo no es un RAR válido'}, status=400)
 
 class GuardarArchivoView(APIView):
+    """
+    API endpoint para guardar archivos.
+    Requiere permisos para editar documentos.
+    """
+    permission_classes = [IsAuthenticated, CanEditDocuments]
     def post(self, request, *args, **kwargs):
         archivos = request.data.get("archivos", [])  # Lista de archivos renombrados
 
@@ -3539,7 +3554,12 @@ class CargaDirectaView(APIView):
         return Response({"mensaje": "Archivos cargados correctamente"})
 
 class ProcesarArchivoComprimidoView(APIView):
+    """
+    API endpoint para procesar archivos comprimidos.
+    Requiere permisos para editar documentos.
+    """
     parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [IsAuthenticated, CanEditDocuments]
 
     def post(self, request):
         archivo = request.FILES.get("archivo")
@@ -3666,6 +3686,12 @@ class AsignarDeclaracionDesdeComprimidoView(APIView):
         return Response({"mensaje": "Archivos extraídos y asignados correctamente"})
 
 class ListarDeclaracionesView(APIView):
+    """
+    API endpoint para listar declaraciones.
+    Requiere acceso al módulo de importaciones.
+    """
+    permission_classes = [IsAuthenticated, CanAccessImportaciones]
+    
     def get(self, request):
         numero = request.query_params.get('numero')
         queryset = Declaracion.objects.prefetch_related('documentos').all()
@@ -3675,6 +3701,12 @@ class ListarDeclaracionesView(APIView):
         return Response(data)
 
 class DescargarZipView(APIView):
+    """
+    API endpoint para descargar archivos ZIP de declaraciones.
+    Requiere acceso al módulo de importaciones.
+    """
+    permission_classes = [IsAuthenticated, CanAccessImportaciones]
+    
     def get(self, request, numero, anio):
         try:
             declaracion = Declaracion.objects.get(numero=numero, anio=anio)
@@ -3712,6 +3744,12 @@ class DescargarZipView(APIView):
         return response
 
 class EliminarDocumentoView(APIView):
+    """
+    API endpoint para eliminar documentos.
+    Requiere permisos de eliminación y edición de documentos.
+    """
+    permission_classes = [IsAuthenticated, CanEditDocuments, CanDeleteResource]
+    
     def delete(self, request, pk):
         try:
             doc = Documento.objects.get(pk=pk)
@@ -3722,6 +3760,11 @@ class EliminarDocumentoView(APIView):
         return Response(status=204)
 
 class DocumentosPorDeclaracionView(APIView):
+    """
+    API endpoint para ver documentos por declaración.
+    Requiere acceso al módulo de importaciones.
+    """
+    permission_classes = [IsAuthenticated, CanAccessImportaciones]
     def get(self, request, numero, anio):
         declaracion = get_object_or_404(Declaracion, numero=numero, anio=anio)
 
@@ -3760,6 +3803,11 @@ class DocumentosPorDeclaracionUsuarioLogeadoView(APIView):
 
 
 class DescargarDocumentoView(APIView):
+    """
+    API endpoint para descargar documentos individuales.
+    Requiere acceso al módulo de importaciones.
+    """
+    permission_classes = [IsAuthenticated, CanAccessImportaciones]
     def get(self, request, documento_id):
         documento = get_object_or_404(Documento, id=documento_id)
         file_path = documento.archivo.path
@@ -3865,6 +3913,11 @@ class DocumentoVisualizarView(APIView):
             )
 
 class EditarPDFView(APIView):
+    """
+    API endpoint para editar archivos PDF.
+    Requiere permisos para editar documentos.
+    """
+    permission_classes = [IsAuthenticated, CanEditDocuments]
     def post(self, request, pk):
         try:
             documento = Documento.objects.select_related('declaracion').get(pk=pk)
@@ -3941,6 +3994,11 @@ def pdf_list_from_server(request, documento_id):
     return Response(serializer.data)
 
 class DocumentosRelacionadosAPIView(APIView):
+    """
+    API endpoint para ver documentos relacionados.
+    Requiere acceso al módulo de importaciones.
+    """
+    permission_classes = [IsAuthenticated, CanAccessImportaciones]
     def get(self, request, documento_id):
         try:
             # Obtiene el documento pasado por id
@@ -4263,9 +4321,13 @@ class ActualizarMesAnioFiscalView(APIView):
         )
 
 class TipoDocumentoViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint para gestionar tipos de documentos.
+    Requiere permisos de administrador de importaciones.
+    """
     queryset = TipoDocumento.objects.all()
     serializer_class = TipoDocumentoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsImportacionesAdmin]
 
 class DescargarDocumentosUnificadosPDFView(APIView):
     permission_classes = [IsAuthenticated]

@@ -13,3 +13,15 @@ Thumbs.db
 semillaenv
 /media/
 /semilla360/settings.py
+
+# Logs y auditoría
+logs/
+*.log
+audit.log
+security.log
+general.log
+
+# Archivos temporales
+*.tmp
+*.temp
+/tmp/
