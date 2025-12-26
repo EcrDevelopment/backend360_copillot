@@ -20,6 +20,7 @@ from .serializers import UserSerializer, RoleSerializer, PermissionSerializer, E
 from localizacion.serializers import  DepartamentoSerializer,ProvinciaSerializer,DistritoSerializer
 from rolepermissions.checkers import has_role
 from rest_framework.permissions import BasePermission
+from .permissions import IsAccountsAdmin, CanManageUsers
 
 def get_csrf_token(request):
     csrf_token = get_token(request)
@@ -99,27 +100,46 @@ class CustomTokenRefreshView(TokenRefreshView):
         # Llamar al metodo original de TokenRefreshView
         return super().post(request, *args, **kwargs)
 
-class IsAdminRole(BasePermission):
-    def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and has_role(request.user, 'accounts_admin')
-
-# Permission ViewSet - allow any authenticated to read
+# Permission ViewSet - only admin roles can access
 class PermissionViewSet(viewsets.ModelViewSet):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole]  # everyone authenticated can list/retrieve perms
+    permission_classes = [permissions.IsAuthenticated, CanManageUsers]
+    
+    def get_queryset(self):
+        """Filter permissions to show only relevant ones"""
+        return Permission.objects.all().select_related('content_type')
 
-# Role ViewSet - only admin role
+# Role ViewSet - only admin roles can manage
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
+    permission_classes = [permissions.IsAuthenticated, CanManageUsers]
+    
+    def get_queryset(self):
+        """Filter roles based on user permissions"""
+        return Group.objects.all().prefetch_related('permissions')
 
-# User ViewSet - only admin role
+# User ViewSet - only admin roles can manage
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.select_related("userprofile").all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
+    permission_classes = [permissions.IsAuthenticated, CanManageUsers]
+    
+    def get_queryset(self):
+        """Filter users based on permissions"""
+        user = self.request.user
+        
+        # System admins see all users
+        if has_role(user, 'system_admin'):
+            return User.objects.all().select_related("userprofile").prefetch_related('groups', 'user_permissions')
+        
+        # Accounts admins see all users
+        if has_role(user, 'accounts_admin'):
+            return User.objects.all().select_related("userprofile").prefetch_related('groups', 'user_permissions')
+        
+        # Regular users only see themselves
+        return User.objects.filter(id=user.id).select_related("userprofile")
 
 @api_view(['GET'])
 def fetch_content_types(request):

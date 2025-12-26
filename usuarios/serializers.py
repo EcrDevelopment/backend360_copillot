@@ -12,7 +12,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rolepermissions.roles import get_user_roles
 from rolepermissions.permissions import available_perm_status
 from django.contrib.auth.models import User, Group, Permission
-import re
+from .validators import InputValidator
+from .audit_log import AuditLog, get_client_ip
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -101,6 +102,13 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)
     new_password = serializers.CharField(required=True, write_only=True)
 
+    def validate_new_password(self, value):
+        """Valida la fortaleza de la nueva contraseña usando InputValidator"""
+        try:
+            return InputValidator.validate_password_strength(value)
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+
     def validate(self, attrs):
         token = attrs.get('token')
         user_id = attrs.get('user_id')
@@ -128,18 +136,6 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         # Asegura que el usuario existe
         if not User.objects.filter(id=user_id).exists():
             raise serializers.ValidationError("El usuario no existe.")
-
-        # Validación de la nueva contraseña
-        if len(new_password) < 8:
-            raise serializers.ValidationError("La contraseña debe tener al menos 8 caracteres.")
-        if not re.search(r"[A-Z]", new_password):
-            raise serializers.ValidationError("La contraseña debe contener al menos una letra mayúscula.")
-        if not re.search(r"[a-z]", new_password):
-            raise serializers.ValidationError("La contraseña debe contener al menos una letra minúscula.")
-        if not re.search(r"[0-9]", new_password):
-            raise serializers.ValidationError("La contraseña debe contener al menos un número.")
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", new_password):
-            raise serializers.ValidationError("La contraseña debe contener al menos un carácter especial.")
 
         # Si todo es válido, devuelve los atributos validados
         return attrs
@@ -187,9 +183,37 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id"]
 
+    def validate_username(self, value):
+        """Valida el nombre de usuario usando InputValidator"""
+        try:
+            return InputValidator.validate_username(value)
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+    
+    def validate_email(self, value):
+        """Valida el email usando InputValidator"""
+        try:
+            return InputValidator.validate_email(value)
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+    
+    def validate_password(self, value):
+        """Valida la fortaleza de la contraseña usando InputValidator"""
+        try:
+            return InputValidator.validate_password_strength(value)
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+
     def validate(self, attrs):
         if self.instance is None and not attrs.get("password"):
             raise serializers.ValidationError({"password": "La contraseña es obligatoria para crear un usuario."})
+        
+        # Sanitizar campos de texto
+        if 'first_name' in attrs:
+            attrs['first_name'] = InputValidator.sanitize_string(attrs['first_name'], max_length=150)
+        if 'last_name' in attrs:
+            attrs['last_name'] = InputValidator.sanitize_string(attrs['last_name'], max_length=150)
+        
         return super().validate(attrs)
 
     def create(self, validated_data):
@@ -211,8 +235,8 @@ class UserSerializer(serializers.ModelSerializer):
         roles = validated_data.pop("groups", None)
         perms = validated_data.pop("user_permissions", None)
         profile_data = validated_data.pop("userprofile", {})
-        print('data: ',profile_data)
         password = validated_data.pop("password", None)
+        
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
