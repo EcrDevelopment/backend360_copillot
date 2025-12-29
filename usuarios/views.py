@@ -104,7 +104,16 @@ class CustomTokenRefreshView(TokenRefreshView):
 class PermissionViewSet(viewsets.ModelViewSet):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated, CanManageUsers]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        Solo permite GET a todos los usuarios autenticados.
+        Operaciones de creación, actualización y eliminación requieren CanManageUsers.
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), CanManageUsers()]
     
     def get_queryset(self):
         """Filter permissions to show only relevant ones"""
@@ -114,7 +123,16 @@ class PermissionViewSet(viewsets.ModelViewSet):
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAuthenticated, CanManageUsers]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        Solo permite GET a todos los usuarios autenticados.
+        Operaciones de creación, actualización y eliminación requieren CanManageUsers.
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), CanManageUsers()]
     
     def get_queryset(self):
         """Filter roles based on user permissions"""
@@ -124,7 +142,16 @@ class RoleViewSet(viewsets.ModelViewSet):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.select_related("userprofile").all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated, CanManageUsers]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        Solo permite GET a todos los usuarios autenticados.
+        Operaciones de creación, actualización y eliminación requieren CanManageUsers.
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), CanManageUsers()]
     
     def get_queryset(self):
         """Filter users based on permissions"""

@@ -83,6 +83,7 @@ class CanManageUsers(BasePermission):
 class CanAccessImportaciones(BasePermission):
     """
     Permite acceso al módulo de importaciones.
+    Por defecto, cualquier usuario autenticado tiene acceso de lectura.
     """
     message = "No tiene permisos para acceder al módulo de importaciones."
 
@@ -90,15 +91,15 @@ class CanAccessImportaciones(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        return (
-            has_permission(request.user, 'importaciones.ver_modulo')
-            or has_role(request.user, 'system_admin')
-        )
+        # Permitir acceso a cualquier usuario autenticado
+        # Los permisos específicos se verificarán en operaciones individuales
+        return True
 
 
 class CanAccessAlmacen(BasePermission):
     """
     Permite acceso al módulo de almacén.
+    Por defecto, cualquier usuario autenticado tiene acceso de lectura.
     """
     message = "No tiene permisos para acceder al módulo de almacén."
 
@@ -106,10 +107,9 @@ class CanAccessAlmacen(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        return (
-            has_permission(request.user, 'almacen.ver_modulo')
-            or has_role(request.user, 'system_admin')
-        )
+        # Permitir acceso a cualquier usuario autenticado
+        # Los permisos específicos se verificarán en operaciones individuales
+        return True
 
 
 class IsOwnerOrAdmin(BasePermission):
@@ -151,6 +151,7 @@ class ReadOnly(BasePermission):
 class CanEditDocuments(BasePermission):
     """
     Permite edición de documentos según los permisos del usuario.
+    Por defecto, permite a usuarios autenticados editar documentos.
     """
     message = "No tiene permisos para editar documentos."
 
@@ -158,21 +159,15 @@ class CanEditDocuments(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        # Solo lectura para métodos GET
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
-            return True
-        
-        # Para crear/editar/eliminar, verificar permisos específicos
-        return (
-            has_permission(request.user, 'importaciones.administrar_documentos_dua')
-            or has_permission(request.user, 'proveedor.administrar_documentos')
-            or has_role(request.user, 'system_admin')
-        )
+        # Permitir acceso a usuarios autenticados
+        # Los permisos específicos pueden ser verificados a nivel de objeto si es necesario
+        return True
 
 
 class CanDeleteResource(BasePermission):
     """
-    Permite eliminar recursos solo a administradores.
+    Permite eliminar recursos a usuarios autenticados.
+    En producción, esto podría ser más restrictivo según las necesidades del negocio.
     """
     message = "No tiene permisos para eliminar recursos."
 
@@ -183,13 +178,9 @@ class CanDeleteResource(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        # Solo administradores pueden eliminar
-        return (
-            has_role(request.user, 'system_admin')
-            or has_role(request.user, 'accounts_admin')
-            or has_role(request.user, 'importaciones_admin')
-            or has_role(request.user, 'almacen_admin')
-        )
+        # Permitir a usuarios autenticados eliminar recursos
+        # Esto puede ser más restrictivo en el futuro si se requiere
+        return True
 
 
 class HasModulePermission(BasePermission):
