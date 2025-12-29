@@ -108,8 +108,8 @@ class PermissionViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         """
-        Solo permite GET a todos los usuarios autenticados.
-        Operaciones de creación, actualización y eliminación requieren CanManageUsers.
+        Allows GET for authenticated users (needed for frontend to display options).
+        Requires CanManageUsers for create/update/delete operations.
         """
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
@@ -127,8 +127,8 @@ class RoleViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         """
-        Solo permite GET a todos los usuarios autenticados.
-        Operaciones de creación, actualización y eliminación requieren CanManageUsers.
+        Allows GET for authenticated users (needed for frontend to display user roles).
+        Requires CanManageUsers for create/update/delete operations.
         """
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
@@ -146,8 +146,8 @@ class UserViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         """
-        Solo permite GET a todos los usuarios autenticados.
-        Operaciones de creación, actualización y eliminación requieren CanManageUsers.
+        Allows GET for authenticated users (users can view their own profile and admins can view all).
+        Requires CanManageUsers for create/update/delete operations.
         """
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]

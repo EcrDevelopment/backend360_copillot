@@ -2,26 +2,9 @@
 """
 Custom permission classes for role-based access control.
 These classes provide granular permission checking for different user roles.
-
-NOTA DE COMPATIBILIDAD:
-Las clases CanAccessAlmacen, CanAccessImportaciones, CanEditDocuments y CanDeleteResource
-han sido modificadas para permitir acceso a usuarios autenticados por defecto.
-Esto mantiene compatibilidad con el frontend existente.
-
-Para mayor seguridad en producción, considere:
-1. Implementar permisos a nivel de objeto en las vistas
-2. Asignar roles específicos a usuarios
-3. Configurar filtrado de datos por usuario
-4. Monitorear logs de auditoría regularmente
 """
 from rest_framework.permissions import BasePermission
 from rolepermissions.checkers import has_role, has_permission
-import logging
-
-# Logger para auditoría de permisos
-# Logs: INFO (accesos), WARNING (modificaciones/eliminaciones)
-# IMPORTANTE: Los logs contienen IDs de usuario para cumplimiento de privacidad
-permissions_logger = logging.getLogger('audit')
 
 
 class IsSystemAdmin(BasePermission):
@@ -100,10 +83,6 @@ class CanManageUsers(BasePermission):
 class CanAccessImportaciones(BasePermission):
     """
     Permite acceso al módulo de importaciones.
-    Por defecto, cualquier usuario autenticado tiene acceso de lectura.
-    
-    NOTA: Para mayor seguridad, implemente filtrado de datos a nivel de vista
-    o asigne roles específicos a usuarios que necesiten acceso completo.
     """
     message = "No tiene permisos para acceder al módulo de importaciones."
 
@@ -111,24 +90,15 @@ class CanAccessImportaciones(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        # Log de acceso para auditoría (usando ID por privacidad)
-        permissions_logger.info(
-            f"Acceso al módulo de importaciones - UserID: {request.user.id}, "
-            f"Método: {request.method}, Vista: {view.__class__.__name__}"
+        return (
+            has_permission(request.user, 'importaciones.ver_modulo')
+            or has_role(request.user, 'system_admin')
         )
-        
-        # Permitir acceso a cualquier usuario autenticado
-        # Los permisos específicos se verificarán en operaciones individuales
-        return True
 
 
 class CanAccessAlmacen(BasePermission):
     """
     Permite acceso al módulo de almacén.
-    Por defecto, cualquier usuario autenticado tiene acceso de lectura.
-    
-    NOTA: Para mayor seguridad, implemente filtrado de datos a nivel de vista
-    o asigne roles específicos a usuarios que necesiten acceso completo.
     """
     message = "No tiene permisos para acceder al módulo de almacén."
 
@@ -136,15 +106,10 @@ class CanAccessAlmacen(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        # Log de acceso para auditoría (usando ID por privacidad)
-        permissions_logger.info(
-            f"Acceso al módulo de almacén - UserID: {request.user.id}, "
-            f"Método: {request.method}, Vista: {view.__class__.__name__}"
+        return (
+            has_permission(request.user, 'almacen.ver_modulo')
+            or has_role(request.user, 'system_admin')
         )
-        
-        # Permitir acceso a cualquier usuario autenticado
-        # Los permisos específicos se verificarán en operaciones individuales
-        return True
 
 
 class IsOwnerOrAdmin(BasePermission):
@@ -186,10 +151,6 @@ class ReadOnly(BasePermission):
 class CanEditDocuments(BasePermission):
     """
     Permite edición de documentos según los permisos del usuario.
-    Por defecto, permite a usuarios autenticados editar documentos.
-    
-    NOTA: Para mayor seguridad, implemente verificación de propiedad de documentos
-    a nivel de vista o requiera roles específicos para edición.
     """
     message = "No tiene permisos para editar documentos."
 
@@ -197,28 +158,21 @@ class CanEditDocuments(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        # Log de operaciones de edición para auditoría (usando ID por privacidad)
-        if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
-            permissions_logger.warning(
-                f"Operación de edición de documentos - UserID: {request.user.id}, "
-                f"Método: {request.method}, Vista: {view.__class__.__name__}"
-            )
+        # Solo lectura para métodos GET
+        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return True
         
-        # Permitir acceso a usuarios autenticados
-        # Los permisos específicos pueden ser verificados a nivel de objeto si es necesario
-        return True
+        # Para crear/editar/eliminar, verificar permisos específicos
+        return (
+            has_permission(request.user, 'importaciones.administrar_documentos_dua')
+            or has_permission(request.user, 'proveedor.administrar_documentos')
+            or has_role(request.user, 'system_admin')
+        )
 
 
 class CanDeleteResource(BasePermission):
     """
-    Permite eliminar recursos a usuarios autenticados.
-    En producción, esto podría ser más restrictivo según las necesidades del negocio.
-    
-    ADVERTENCIA: Las operaciones de eliminación son críticas.
-    Para mayor seguridad, considere:
-    1. Implementar soft deletes en lugar de hard deletes
-    2. Requerir roles de administrador para eliminación
-    3. Implementar confirmación de dos factores para eliminaciones
+    Permite eliminar recursos solo a administradores.
     """
     message = "No tiene permisos para eliminar recursos."
 
@@ -229,16 +183,13 @@ class CanDeleteResource(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        # Log crítico de operaciones de eliminación (usando ID por privacidad)
-        permissions_logger.warning(
-            f"⚠️ OPERACIÓN DELETE - UserID: {request.user.id}, "
-            f"Vista: {view.__class__.__name__}, "
-            f"Path: {request.path}"
+        # Solo administradores pueden eliminar
+        return (
+            has_role(request.user, 'system_admin')
+            or has_role(request.user, 'accounts_admin')
+            or has_role(request.user, 'importaciones_admin')
+            or has_role(request.user, 'almacen_admin')
         )
-        
-        # Permitir a usuarios autenticados eliminar recursos
-        # Esto puede ser más restrictivo en el futuro si se requiere
-        return True
 
 
 class HasModulePermission(BasePermission):
