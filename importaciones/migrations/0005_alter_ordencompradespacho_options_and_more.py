@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('importaciones', '0004_rename_decripcion_gastosextra_descripcion'),
+        ('importaciones', '0005_merge_branches'),
     ]
 
     operations = [

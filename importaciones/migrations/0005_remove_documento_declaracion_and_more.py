@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('importaciones', '0004_documento_content_type_documento_object_id_and_more'),
+        ('importaciones', '0005_merge_branches'),
     ]
 
     operations = [
