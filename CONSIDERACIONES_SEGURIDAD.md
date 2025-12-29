@@ -135,8 +135,8 @@ grep "módulo de almacén" logs/audit.log | tail -n 20
 # Ver operaciones DELETE recientes
 grep "OPERACIÓN DELETE" logs/audit.log | tail -n 20
 
-# Ver actividad de un usuario específico
-grep "Usuario: username" logs/audit.log | tail -n 50
+# Ver actividad de un usuario específico (por ID)
+grep "UserID: 123" logs/audit.log | tail -n 50
 
 # Monitoreo en tiempo real
 tail -f logs/audit.log | grep -E "DELETE|EDIT"

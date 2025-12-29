@@ -19,6 +19,8 @@ from rolepermissions.checkers import has_role, has_permission
 import logging
 
 # Logger para auditoría de permisos
+# Logs: INFO (accesos), WARNING (modificaciones/eliminaciones)
+# IMPORTANTE: Los logs contienen IDs de usuario para cumplimiento de privacidad
 permissions_logger = logging.getLogger('audit')
 
 
@@ -109,9 +111,9 @@ class CanAccessImportaciones(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        # Log de acceso para auditoría
+        # Log de acceso para auditoría (usando ID por privacidad)
         permissions_logger.info(
-            f"Acceso al módulo de importaciones - Usuario: {request.user.username}, "
+            f"Acceso al módulo de importaciones - UserID: {request.user.id}, "
             f"Método: {request.method}, Vista: {view.__class__.__name__}"
         )
         
@@ -134,9 +136,9 @@ class CanAccessAlmacen(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        # Log de acceso para auditoría
+        # Log de acceso para auditoría (usando ID por privacidad)
         permissions_logger.info(
-            f"Acceso al módulo de almacén - Usuario: {request.user.username}, "
+            f"Acceso al módulo de almacén - UserID: {request.user.id}, "
             f"Método: {request.method}, Vista: {view.__class__.__name__}"
         )
         
@@ -195,10 +197,10 @@ class CanEditDocuments(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        # Log de operaciones de edición para auditoría
+        # Log de operaciones de edición para auditoría (usando ID por privacidad)
         if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
             permissions_logger.warning(
-                f"Operación de edición de documentos - Usuario: {request.user.username}, "
+                f"Operación de edición de documentos - UserID: {request.user.id}, "
                 f"Método: {request.method}, Vista: {view.__class__.__name__}"
             )
         
@@ -227,9 +229,9 @@ class CanDeleteResource(BasePermission):
         if not (request.user and request.user.is_authenticated):
             return False
         
-        # Log crítico de operaciones de eliminación
+        # Log crítico de operaciones de eliminación (usando ID por privacidad)
         permissions_logger.warning(
-            f"⚠️ OPERACIÓN DELETE - Usuario: {request.user.username}, "
+            f"⚠️ OPERACIÓN DELETE - UserID: {request.user.id}, "
             f"Vista: {view.__class__.__name__}, "
             f"Path: {request.path}"
         )
