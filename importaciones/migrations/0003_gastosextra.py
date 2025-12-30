@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('importaciones', '0002_despacho_fecha_llegada'),
+        ('importaciones', '0002_tipodocumento_historicaltipodocumento'),
     ]
 
     operations = [

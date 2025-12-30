@@ -10,21 +10,56 @@ from localizacion.serializers import DepartamentoSerializer, ProvinciaSerializer
 from .models import PasswordResetToken, UserProfile, Empresa, Direccion
 from  localizacion.models import  Departamento, Provincia, Distrito
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rolepermissions.roles import get_user_roles
-from rolepermissions.permissions import available_perm_status
 from django.contrib.auth.models import User, Group, Permission
 from .validators import InputValidator
 from .audit_log import AuditLog, get_client_ip
 
+'''
+por alguna razon ahora en mi frontend tengo el problema de no esta funcionando el refresh token cambiaste algo
+de como se guarda el token al hacer login o como se hace al refrescar porque mi frontend lo validad constantemente 
+con Axios y ya estaba todo configurado antes pero de repente dejo de funcionar.
+'''
+
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Custom JWT token serializer that includes user roles and permissions.
+    Uses Django's native auth system (Groups and Permissions).
+    """
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        token['roles'] = [role.get_name() for role in get_user_roles(user)]
-        token['permissions'] = available_perm_status(user)
+        # Don't include roles and permissions in token payload to keep token size small
+        # Frontend should fetch roles and permissions separately via API endpoints
+        # Only include essential user identifier
+        token['username'] = user.username
         return token
+
+    @staticmethod
+    def _get_user_permissions(user):
+        """
+        Get all permissions for user (from groups + user-specific permissions).
+        Returns a dict with permission codenames as keys and True as values.
+        """
+        permissions = {}
+        
+        # Get all permissions (including from groups)
+        all_perms = user.get_all_permissions()
+        
+        # Convert to dict format: {'app.permission_codename': True}
+        for perm in all_perms:
+            permissions[perm.replace('.', '_')] = True
+        
+        # Also add codename-only format for backwards compatibility
+        for perm in user.user_permissions.all():
+            permissions[perm.codename] = True
+        
+        for group in user.groups.all():
+            for perm in group.permissions.all():
+                permissions[perm.codename] = True
+        
+        return permissions
 
     def validate(self, attrs):
         data = super().validate(attrs)
@@ -35,8 +70,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'email': self.user.email,
             'nombre': self.user.first_name,
             'apellido': self.user.last_name,
-            'profile_id': None,
-            'empresa_id': None
         }
 
         profile = getattr(self.user, 'userprofile', None)
@@ -45,8 +78,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             user_info['empresa_id'] = profile.empresa.id if profile.empresa else None
 
         data['user'] = user_info
-        data['roles'] = [role.get_name() for role in get_user_roles(self.user)]
-        data['permissions'] = available_perm_status(self.user)
+        
+        # Return only role and permission IDs, not full details
+        # This keeps the token size manageable
+        data['roles'] = list(self.user.groups.values_list('id', flat=True))
+        data['permissions'] = list(self.user.user_permissions.values_list('id', flat=True))
+        
+        # Frontend should fetch full role/permission details via separate API calls
+        # e.g., GET /api/accounts/usuarios/{user_id}/ to get complete user info
 
         return data
 

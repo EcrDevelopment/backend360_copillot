@@ -18,7 +18,6 @@ from rest_framework import viewsets, permissions
 from django.contrib.auth.models import User, Group, Permission
 from .serializers import UserSerializer, RoleSerializer, PermissionSerializer, EmpresaSerializer,DireccionSerializer
 from localizacion.serializers import  DepartamentoSerializer,ProvinciaSerializer,DistritoSerializer
-from rolepermissions.checkers import has_role
 from rest_framework.permissions import BasePermission
 from .permissions import IsAccountsAdmin, CanManageUsers
 
@@ -98,48 +97,144 @@ class CustomTokenRefreshView(TokenRefreshView):
         # Reemplazar los datos de la solicitud original con la copia mutable
         request._body = json.dumps(data)
         # Llamar al metodo original de TokenRefreshView
-        return super().post(request, *args, **kwargs)
+        response = super().post(request, *args, **kwargs)
+        
+        # If successful, add minimal user information to match login response format
+        # Roles and permissions are fetched separately via API to avoid large token size
+        if response.status_code == 200:
+            try:
+                from rest_framework_simplejwt.tokens import RefreshToken
+                
+                # Decode the refresh token to get the user
+                refresh = RefreshToken(refresh_token)
+                user_id = refresh.get('user_id')
+                user = User.objects.get(id=user_id)
+                
+                # Add minimal user info to response
+                # Frontend should fetch full roles/permissions via separate API calls
+                response.data['user'] = {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'nombre': user.first_name,
+                    'apellido': user.last_name,
+                }
+                
+                profile = getattr(user, 'userprofile', None)
+                if profile:
+                    response.data['user']['telefono'] = profile.telefono if profile.telefono else None
+                    response.data['user']['empresa_id'] = profile.empresa.id if profile.empresa else None
+                
+                # Don't include full roles and permissions lists to keep response small
+                # Frontend fetches these separately via /api/accounts/usuarios/{id}/
+                
+            except Exception as e:
+                print(f"Error adding user info to refresh response: {e}")
+                # If there's an error, just return the access token without extra info
+                pass
+        
+        return response
 
 # Permission ViewSet - only admin roles can access
 class PermissionViewSet(viewsets.ModelViewSet):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated, CanManageUsers]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        Allows GET for authenticated users (needed for frontend to display options).
+        Requires CanManageUsers for create/update/delete operations.
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), CanManageUsers()]
     
     def get_queryset(self):
         """Filter permissions to show only relevant ones"""
         return Permission.objects.all().select_related('content_type')
+    
+    @property
+    def paginator(self):
+        """
+        Conditionally disable pagination based on query parameters.
+        Use ?pagination=off or ?all=true to get all results without pagination.
+        """
+        if self.request.query_params.get('pagination') == 'off' or \
+           self.request.query_params.get('all') == 'true':
+            return None
+        return super().paginator
 
 # Role ViewSet - only admin roles can manage
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAuthenticated, CanManageUsers]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        Allows GET for authenticated users (needed for frontend to display user roles).
+        Requires CanManageUsers for create/update/delete operations.
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), CanManageUsers()]
     
     def get_queryset(self):
         """Filter roles based on user permissions"""
         return Group.objects.all().prefetch_related('permissions')
+    
+    @property
+    def paginator(self):
+        """
+        Conditionally disable pagination based on query parameters.
+        Use ?pagination=off or ?all=true to get all results without pagination.
+        """
+        if self.request.query_params.get('pagination') == 'off' or \
+           self.request.query_params.get('all') == 'true':
+            return None
+        return super().paginator
 
 # User ViewSet - only admin roles can manage
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.select_related("userprofile").all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated, CanManageUsers]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        Allows GET for authenticated users (users can view their own profile and admins can view all).
+        Requires CanManageUsers for create/update/delete operations.
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), CanManageUsers()]
     
     def get_queryset(self):
         """Filter users based on permissions"""
         user = self.request.user
         
-        # System admins see all users
-        if has_role(user, 'system_admin'):
+        # System admins see all users (using native Django Groups)
+        if user.groups.filter(name='SystemAdmin').exists():
             return User.objects.all().select_related("userprofile").prefetch_related('groups', 'user_permissions')
         
-        # Accounts admins see all users
-        if has_role(user, 'accounts_admin'):
+        # Accounts admins see all users (using native Django Groups)
+        if user.groups.filter(name='AccountsAdmin').exists():
             return User.objects.all().select_related("userprofile").prefetch_related('groups', 'user_permissions')
         
         # Regular users only see themselves
-        return User.objects.filter(id=user.id).select_related("userprofile")
+        return User.objects.filter(id=user.id).select_related("userprofile").prefetch_related('groups', 'user_permissions')
+    
+    @property
+    def paginator(self):
+        """
+        Conditionally disable pagination based on query parameters.
+        Use ?pagination=off or ?all=true to get all results without pagination.
+        """
+        if self.request.query_params.get('pagination') == 'off' or \
+           self.request.query_params.get('all') == 'true':
+            return None
+        return super().paginator
 
 @api_view(['GET'])
 def fetch_content_types(request):

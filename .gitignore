@@ -25,3 +25,4 @@ general.log
 *.tmp
 *.temp
 /tmp/
+*.py.bak

@@ -24758,3 +24758,225 @@ WARNING 2025-12-26 16:09:34,765 log Bad Request: /api/almacen/registros-estibaje
 WARNING 2025-12-26 16:09:34,765 runserver HTTP POST /api/almacen/registros-estibaje/ 400 [0.03, 127.0.0.1:49894]
 WARNING 2025-12-26 16:15:57,010 log Bad Request: /api/almacen/registros-estibaje/
 WARNING 2025-12-26 16:15:57,014 runserver HTTP POST /api/almacen/registros-estibaje/ 400 [0.04, 127.0.0.1:5443]
+WARNING 2025-12-30 09:25:50,677 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 09:25:50,698 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.71, 127.0.0.1:11784]
+WARNING 2025-12-30 09:25:51,096 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 09:25:51,103 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.05, 127.0.0.1:60548]
+WARNING 2025-12-30 10:00:44,555 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 10:00:44,553 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 10:00:44,653 runserver HTTP GET /api/accounts/roles 401 [1.02, 127.0.0.1:61554]
+WARNING 2025-12-30 10:00:44,661 runserver HTTP GET /api/accounts/usuarios 401 [0.58, 127.0.0.1:61555]
+WARNING 2025-12-30 10:00:55,728 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 10:00:55,734 runserver HTTP GET /api/accounts/usuarios 401 [0.02, 127.0.0.1:46370]
+WARNING 2025-12-30 10:00:55,768 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 10:00:55,793 runserver HTTP GET /api/accounts/roles 401 [0.07, 127.0.0.1:46372]
+WARNING 2025-12-30 10:00:56,022 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 10:00:56,023 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 10:00:56,023 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 10:00:56,025 runserver HTTP GET /api/accounts/permisos 401 [0.02, 127.0.0.1:42741]
+WARNING 2025-12-30 10:00:56,026 runserver HTTP GET /api/accounts/usuarios 401 [0.02, 127.0.0.1:42740]
+WARNING 2025-12-30 10:00:56,026 runserver HTTP GET /api/accounts/empresas/ 401 [0.02, 127.0.0.1:42739]
+WARNING 2025-12-30 10:00:56,137 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 10:00:56,137 runserver HTTP GET /api/accounts/roles 401 [0.01, 127.0.0.1:11823]
+WARNING 2025-12-30 10:00:56,165 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 10:00:56,166 runserver HTTP GET /api/accounts/permisos 401 [0.01, 127.0.0.1:43473]
+WARNING 2025-12-30 10:00:56,353 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 10:00:56,356 runserver HTTP GET /api/accounts/empresas/ 401 [0.01, 127.0.0.1:6126]
+WARNING 2025-12-30 10:01:15,809 log Unauthorized: /api/accounts/auth/login/
+WARNING 2025-12-30 10:01:15,811 runserver HTTP POST /api/accounts/auth/login/ 401 [0.82, 127.0.0.1:57290]
+WARNING 2025-12-30 10:12:32,492 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 10:12:32,508 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 10:12:32,508 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 10:12:32,511 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 10:12:32,574 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 10:12:32,579 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 10:12:32,597 runserver HTTP GET /api/accounts/roles 401 [0.38, 127.0.0.1:30689]
+WARNING 2025-12-30 10:12:32,601 runserver HTTP GET /api/accounts/usuarios 401 [0.48, 127.0.0.1:11224]
+WARNING 2025-12-30 10:12:32,601 runserver HTTP GET /api/accounts/usuarios 401 [0.35, 127.0.0.1:30690]
+WARNING 2025-12-30 10:12:32,601 runserver HTTP GET /api/accounts/roles 401 [0.31, 127.0.0.1:30691]
+WARNING 2025-12-30 10:12:32,601 runserver HTTP GET /api/accounts/permisos 401 [0.38, 127.0.0.1:30688]
+WARNING 2025-12-30 10:12:32,601 runserver HTTP GET /api/accounts/empresas/ 401 [0.25, 127.0.0.1:30692]
+WARNING 2025-12-30 10:12:33,049 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 10:12:33,051 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 10:12:33,090 runserver HTTP GET /api/accounts/permisos 401 [0.05, 127.0.0.1:56932]
+WARNING 2025-12-30 10:12:33,090 runserver HTTP GET /api/accounts/empresas/ 401 [0.05, 127.0.0.1:56931]
+WARNING 2025-12-30 10:18:31,957 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 10:18:31,959 runserver HTTP POST /api/accounts/usuarios 401 [0.01, 127.0.0.1:36980]
+WARNING 2025-12-30 10:30:50,216 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 10:30:50,228 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 10:30:50,235 runserver HTTP GET /api/accounts/usuarios 401 [0.17, 127.0.0.1:30193]
+WARNING 2025-12-30 10:30:50,236 runserver HTTP GET /api/accounts/roles?all=true 401 [0.03, 127.0.0.1:10064]
+WARNING 2025-12-30 10:30:50,398 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 10:30:50,398 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 10:30:50,398 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.03, 127.0.0.1:50541]
+WARNING 2025-12-30 10:30:50,398 runserver HTTP GET /api/accounts/empresas/ 401 [0.03, 127.0.0.1:50540]
+WARNING 2025-12-30 10:30:50,489 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 10:30:50,490 runserver HTTP GET /api/accounts/usuarios 401 [0.01, 127.0.0.1:49385]
+WARNING 2025-12-30 10:30:50,567 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 10:30:50,567 runserver HTTP GET /api/accounts/roles?all=true 401 [0.00, 127.0.0.1:44020]
+WARNING 2025-12-30 10:30:50,807 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 10:30:50,807 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 10:30:50,807 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.01, 127.0.0.1:51325]
+WARNING 2025-12-30 10:30:50,814 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.02, 127.0.0.1:51324]
+WARNING 2025-12-30 10:36:52,551 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 10:36:52,558 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 10:36:52,570 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 10:36:52,574 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 10:36:52,583 runserver HTTP GET /api/accounts/usuarios 401 [0.32, 127.0.0.1:8356]
+WARNING 2025-12-30 10:36:52,587 runserver HTTP GET /api/accounts/roles?all=true 401 [0.28, 127.0.0.1:8357]
+WARNING 2025-12-30 10:36:52,590 runserver HTTP GET /api/accounts/empresas/ 401 [0.07, 127.0.0.1:21202]
+WARNING 2025-12-30 10:36:52,593 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.07, 127.0.0.1:21203]
+WARNING 2025-12-30 10:36:52,639 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 10:36:52,639 runserver HTTP GET /api/accounts/usuarios 401 [0.01, 127.0.0.1:8661]
+WARNING 2025-12-30 10:36:52,896 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 10:36:52,896 runserver HTTP GET /api/accounts/roles?all=true 401 [0.01, 127.0.0.1:17524]
+WARNING 2025-12-30 10:36:52,951 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 10:36:52,951 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 10:36:52,953 runserver HTTP GET /api/accounts/empresas/ 401 [0.02, 127.0.0.1:8749]
+WARNING 2025-12-30 10:36:52,954 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.02, 127.0.0.1:8750]
+WARNING 2025-12-30 11:36:37,663 log Unauthorized: /api/accounts/auth/login/
+WARNING 2025-12-30 11:36:37,679 runserver HTTP POST /api/accounts/auth/login/ 401 [1.16, 127.0.0.1:25982]
+WARNING 2025-12-30 11:53:03,266 log Not Found: /api/almacen/movimientos/
+WARNING 2025-12-30 11:53:03,276 runserver HTTP GET /api/almacen/movimientos/?page=3&page_size=10&empresa=1&almacen=11&fecha_documento_desde=2025-12-01&fecha_documento_hasta=2025-12-30&ordering=-fecha_documento 404 [0.15, 127.0.0.1:8495]
+WARNING 2025-12-30 11:53:03,596 log Not Found: /api/almacen/movimientos/
+WARNING 2025-12-30 11:53:03,597 runserver HTTP GET /api/almacen/movimientos/?page=4&page_size=10&empresa=1&almacen=11&fecha_documento_desde=2025-12-01&fecha_documento_hasta=2025-12-30&ordering=-fecha_documento 404 [0.05, 127.0.0.1:31584]
+WARNING 2025-12-30 11:53:05,575 log Not Found: /api/almacen/movimientos/
+WARNING 2025-12-30 11:53:05,576 runserver HTTP GET /api/almacen/movimientos/?page=5&page_size=10&empresa=1&almacen=11&fecha_documento_desde=2025-12-01&fecha_documento_hasta=2025-12-30&ordering=-fecha_documento 404 [0.07, 127.0.0.1:32050]
+WARNING 2025-12-30 11:53:09,943 log Not Found: /api/almacen/movimientos/
+WARNING 2025-12-30 11:53:09,944 runserver HTTP GET /api/almacen/movimientos/?page=6&page_size=10&empresa=1&almacen=11&fecha_documento_desde=2025-12-01&fecha_documento_hasta=2025-12-30&ordering=-fecha_documento 404 [0.06, 127.0.0.1:27787]
+WARNING 2025-12-30 12:00:35,535 log Unauthorized: /api/accounts/usuarios/14
+WARNING 2025-12-30 12:00:35,565 runserver HTTP PUT /api/accounts/usuarios/14 401 [0.17, 127.0.0.1:2587]
+WARNING 2025-12-30 12:02:55,053 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 12:02:55,055 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.01, 127.0.0.1:48064]
+WARNING 2025-12-30 12:02:55,379 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 12:02:55,383 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.00, 127.0.0.1:6213]
+WARNING 2025-12-30 12:02:57,668 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 12:02:57,668 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 12:02:57,674 runserver HTTP GET /api/accounts/roles?all=true 401 [0.02, 127.0.0.1:4380]
+WARNING 2025-12-30 12:02:57,674 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 12:02:57,674 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 12:02:57,674 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.02, 127.0.0.1:4379]
+WARNING 2025-12-30 12:02:57,677 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.02, 127.0.0.1:4381]
+WARNING 2025-12-30 12:02:57,678 runserver HTTP GET /api/accounts/usuarios 401 [0.02, 127.0.0.1:4382]
+WARNING 2025-12-30 12:02:57,915 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 12:02:57,915 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.01, 127.0.0.1:60448]
+WARNING 2025-12-30 12:02:58,029 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 12:02:58,029 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 12:02:58,030 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.03, 127.0.0.1:57853]
+WARNING 2025-12-30 12:02:58,030 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 12:02:58,032 runserver HTTP GET /api/accounts/roles?all=true 401 [0.03, 127.0.0.1:57852]
+WARNING 2025-12-30 12:02:58,032 runserver HTTP GET /api/accounts/usuarios 401 [0.03, 127.0.0.1:57851]
+WARNING 2025-12-30 12:03:18,405 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 12:03:18,406 runserver HTTP GET /api/accounts/usuarios 401 [0.01, 127.0.0.1:58841]
+WARNING 2025-12-30 12:03:18,718 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 12:03:18,724 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 12:03:18,724 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 12:03:18,724 runserver HTTP GET /api/accounts/roles?all=true 401 [0.02, 127.0.0.1:45838]
+WARNING 2025-12-30 12:03:18,724 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.02, 127.0.0.1:45840]
+WARNING 2025-12-30 12:03:18,724 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.02, 127.0.0.1:45841]
+WARNING 2025-12-30 12:03:18,746 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 12:03:18,747 runserver HTTP GET /api/accounts/usuarios 401 [0.01, 127.0.0.1:14489]
+WARNING 2025-12-30 12:03:19,081 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 12:03:19,081 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 12:03:19,081 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 12:03:19,083 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.02, 127.0.0.1:15404]
+WARNING 2025-12-30 12:03:19,084 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.02, 127.0.0.1:15402]
+WARNING 2025-12-30 12:03:19,084 runserver HTTP GET /api/accounts/roles?all=true 401 [0.02, 127.0.0.1:15403]
+WARNING 2025-12-30 12:36:15,419 log Unauthorized: /api/accounts/auth/login/
+WARNING 2025-12-30 12:36:15,426 runserver HTTP POST /api/accounts/auth/login/ 401 [0.77, 127.0.0.1:64483]
+WARNING 2025-12-30 12:36:26,840 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 12:36:26,840 runserver HTTP GET /api/accounts/usuarios 401 [0.01, 127.0.0.1:62814]
+WARNING 2025-12-30 12:36:27,048 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 12:36:27,048 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 12:36:27,051 runserver HTTP GET /api/accounts/roles?all=true 401 [0.04, 127.0.0.1:65153]
+WARNING 2025-12-30 12:36:27,052 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.04, 127.0.0.1:65152]
+WARNING 2025-12-30 12:36:27,055 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 12:36:27,060 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.05, 127.0.0.1:65151]
+WARNING 2025-12-30 12:36:27,068 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 12:36:27,069 runserver HTTP GET /api/accounts/usuarios 401 [0.01, 127.0.0.1:18111]
+WARNING 2025-12-30 12:36:27,174 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 12:36:27,175 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.00, 127.0.0.1:4781]
+WARNING 2025-12-30 12:36:27,384 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 12:36:27,384 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 12:36:27,384 runserver HTTP GET /api/accounts/roles?all=true 401 [0.01, 127.0.0.1:40240]
+WARNING 2025-12-30 12:36:27,384 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.01, 127.0.0.1:40239]
+WARNING 2025-12-30 12:40:50,043 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 12:40:50,051 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.02, 127.0.0.1:17284]
+WARNING 2025-12-30 12:40:50,428 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 12:40:50,428 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.01, 127.0.0.1:23176]
+WARNING 2025-12-30 12:41:04,134 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 12:41:04,134 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.14, 127.0.0.1:31716]
+WARNING 2025-12-30 12:41:11,068 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 12:41:11,068 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.01, 127.0.0.1:36524]
+WARNING 2025-12-30 12:41:12,351 log Unauthorized: /api/almacen/
+WARNING 2025-12-30 12:41:12,352 runserver HTTP GET /api/almacen/ 401 [0.01, 127.0.0.1:22439]
+WARNING 2025-12-30 12:41:16,090 log Unauthorized: /api/almacen/
+WARNING 2025-12-30 12:41:16,090 runserver HTTP GET /api/almacen/ 401 [0.01, 127.0.0.1:24535]
+WARNING 2025-12-30 12:41:17,630 log Unauthorized: /api/almacen/
+WARNING 2025-12-30 12:41:17,631 runserver HTTP GET /api/almacen/ 401 [0.01, 127.0.0.1:31483]
+WARNING 2025-12-30 12:41:19,296 log Unauthorized: /api/almacen/
+WARNING 2025-12-30 12:41:19,296 runserver HTTP GET /api/almacen/ 401 [0.01, 127.0.0.1:63817]
+WARNING 2025-12-30 12:41:19,998 log Unauthorized: /api/almacen/
+WARNING 2025-12-30 12:41:20,004 runserver HTTP GET /api/almacen/ 401 [0.01, 127.0.0.1:27797]
+WARNING 2025-12-30 12:41:22,693 log Unauthorized: /api/almacen/
+WARNING 2025-12-30 12:41:22,694 runserver HTTP GET /api/almacen/ 401 [0.01, 127.0.0.1:1829]
+WARNING 2025-12-30 12:41:28,743 log Unauthorized: /api/almacen/
+WARNING 2025-12-30 12:41:28,743 runserver HTTP GET /api/almacen/ 401 [0.01, 127.0.0.1:40491]
+WARNING 2025-12-30 12:41:35,216 log Unauthorized: /api/almacen/
+WARNING 2025-12-30 12:41:35,216 runserver HTTP GET /api/almacen/ 401 [0.01, 127.0.0.1:25839]
+WARNING 2025-12-30 12:41:35,888 log Not Found: /favicon.ico
+WARNING 2025-12-30 12:41:35,888 runserver HTTP GET /favicon.ico 404 [0.10, 127.0.0.1:36712]
+WARNING 2025-12-30 12:41:42,177 log Unauthorized: /api/almacen/
+WARNING 2025-12-30 12:41:42,178 runserver HTTP GET /api/almacen/?format=api 401 [0.01, 127.0.0.1:36712]
+WARNING 2025-12-30 12:41:43,578 log Unauthorized: /api/almacen/
+WARNING 2025-12-30 12:41:43,578 runserver HTTP GET /api/almacen/?format=api 401 [0.01, 127.0.0.1:36712]
+WARNING 2025-12-30 12:42:09,332 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 12:42:09,333 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.03, 127.0.0.1:57639]
+WARNING 2025-12-30 12:42:18,122 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 12:42:18,123 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.02, 127.0.0.1:57790]
+WARNING 2025-12-30 12:42:24,680 log Not Found: /
+WARNING 2025-12-30 12:42:24,681 runserver HTTP GET / 404 [0.02, 127.0.0.1:57790]
+WARNING 2025-12-30 12:42:28,521 log Not Found: /
+WARNING 2025-12-30 12:42:28,522 runserver HTTP GET / 404 [0.02, 127.0.0.1:57790]
+WARNING 2025-12-30 12:42:50,679 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 12:42:50,679 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 12:42:50,679 runserver HTTP GET /api/accounts/usuarios 401 [0.02, 127.0.0.1:1293]
+WARNING 2025-12-30 12:42:50,679 runserver HTTP GET /api/accounts/roles?all=true 401 [0.02, 127.0.0.1:1296]
+WARNING 2025-12-30 12:42:50,679 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 12:42:50,679 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 12:42:50,687 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.03, 127.0.0.1:1297]
+WARNING 2025-12-30 12:42:50,688 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.03, 127.0.0.1:1294]
+WARNING 2025-12-30 12:42:50,934 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 12:42:50,935 runserver HTTP GET /api/accounts/usuarios 401 [0.01, 127.0.0.1:58313]
+WARNING 2025-12-30 12:42:51,029 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 12:42:51,029 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 12:42:51,031 runserver HTTP GET /api/accounts/roles?all=true 401 [0.02, 127.0.0.1:37884]
+WARNING 2025-12-30 12:42:51,031 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.02, 127.0.0.1:37885]
+WARNING 2025-12-30 12:42:51,034 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 12:42:51,035 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.02, 127.0.0.1:37886]
+WARNING 2025-12-30 14:39:22,467 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 14:39:22,473 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.06, 127.0.0.1:10301]
+WARNING 2025-12-30 14:39:22,811 log Unauthorized: /api/almacen/check-sync-status/
+WARNING 2025-12-30 14:39:22,812 runserver HTTP GET /api/almacen/check-sync-status/ 401 [0.02, 127.0.0.1:29811]
+WARNING 2025-12-30 14:39:28,283 log Unauthorized: /api/importaciones/listar_declaraciones/
+WARNING 2025-12-30 14:39:28,284 runserver HTTP GET /api/importaciones/listar_declaraciones/?numero= 401 [0.03, 127.0.0.1:63150]
+WARNING 2025-12-30 14:39:28,632 log Unauthorized: /api/importaciones/listar_declaraciones/
+WARNING 2025-12-30 14:39:28,632 runserver HTTP GET /api/importaciones/listar_declaraciones/?numero= 401 [0.01, 127.0.0.1:18425]
+WARNING 2025-12-30 14:56:42,848 log Unauthorized: /api/accounts/auth/login/
+WARNING 2025-12-30 14:56:42,848 runserver HTTP POST /api/accounts/auth/login/ 401 [0.89, 127.0.0.1:29289]
+WARNING 2025-12-30 14:56:53,204 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 14:56:53,204 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 14:56:53,205 runserver HTTP GET /api/accounts/usuarios 401 [0.02, 127.0.0.1:31951]
+WARNING 2025-12-30 14:56:53,206 runserver HTTP GET /api/accounts/roles?all=true 401 [0.02, 127.0.0.1:31953]
+WARNING 2025-12-30 14:56:53,507 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 14:56:53,507 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.01, 127.0.0.1:14390]
+WARNING 2025-12-30 14:56:53,507 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 14:56:53,507 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.01, 127.0.0.1:14388]
+WARNING 2025-12-30 14:56:53,539 log Unauthorized: /api/accounts/roles
+WARNING 2025-12-30 14:56:53,539 runserver HTTP GET /api/accounts/roles?all=true 401 [0.01, 127.0.0.1:57142]
+WARNING 2025-12-30 14:56:53,557 log Unauthorized: /api/accounts/usuarios
+WARNING 2025-12-30 14:56:53,557 runserver HTTP GET /api/accounts/usuarios 401 [0.02, 127.0.0.1:25501]
+WARNING 2025-12-30 14:56:53,837 log Unauthorized: /api/accounts/empresas/
+WARNING 2025-12-30 14:56:53,838 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.01, 127.0.0.1:32970]
+WARNING 2025-12-30 14:56:53,855 log Unauthorized: /api/accounts/permisos
+WARNING 2025-12-30 14:56:53,856 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.02, 127.0.0.1:32086]

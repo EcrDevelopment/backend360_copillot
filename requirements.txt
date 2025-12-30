@@ -14,7 +14,6 @@ Jinja2
 xhtml2pdf
 rarfile
 django-mssql-backend
-django-role-permissions
 django-simple-history
 PyMuPdf
 mssql-django
