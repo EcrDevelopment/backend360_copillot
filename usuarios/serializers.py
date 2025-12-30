@@ -14,6 +14,12 @@ from django.contrib.auth.models import User, Group, Permission
 from .validators import InputValidator
 from .audit_log import AuditLog, get_client_ip
 
+'''
+por alguna razon ahora en mi frontend tengo el problema de no esta funcionando el refresh token cambiaste algo
+de como se guarda el token al hacer login o como se hace al refrescar porque mi frontend lo validad constantemente 
+con Axios y ya estaba todo configurado antes pero de repente dejo de funcionar.
+'''
+
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """

@@ -4,7 +4,7 @@ Custom permission classes for role-based access control.
 These classes provide granular permission checking for different user roles.
 """
 from rest_framework.permissions import BasePermission
-from rolepermissions.checkers import has_role, has_permission
+#from rolepermissions.checkers import has_role, has_permission
 
 
 class IsSystemAdmin(BasePermission):
@@ -17,7 +17,7 @@ class IsSystemAdmin(BasePermission):
         return (
             request.user 
             and request.user.is_authenticated 
-            and has_role(request.user, 'system_admin')
+            and request.user.groups.filter(name='SystemAdmin').exists()
         )
 
 
@@ -31,7 +31,7 @@ class IsAccountsAdmin(BasePermission):
         return (
             request.user 
             and request.user.is_authenticated 
-            and has_role(request.user, 'accounts_admin')
+            and request.user.groups.filter(name= 'accounts_admin').exists()
         )
 
 
@@ -45,7 +45,8 @@ class IsImportacionesAdmin(BasePermission):
         return (
             request.user 
             and request.user.is_authenticated 
-            and has_role(request.user, 'importaciones_admin')
+            #and has_role(request.user, 'importaciones_admin')
+            and request.user.groups.filter(name='importaciones_admin').exists()
         )
 
 
@@ -59,7 +60,8 @@ class IsAlmacenAdmin(BasePermission):
         return (
             request.user 
             and request.user.is_authenticated 
-            and has_role(request.user, 'almacen_admin')
+            #and has_role(request.user, 'almacen_admin')
+            and request.user.groups.filter(name='almacen_admin').exists()
         )
 
 
@@ -75,8 +77,9 @@ class CanManageUsers(BasePermission):
         
         # SystemAdmin y AccountsAdmin pueden gestionar usuarios
         return (
-            has_role(request.user, 'system_admin') 
-            or has_role(request.user, 'accounts_admin')
+            request.user.groups.filter(name='SystemAdmin').exists()
+            #or has_role(request.user, 'accounts_admin')
+            and request.user.groups.filter(name='accounts_admin').exists()
         )
 
 
@@ -91,8 +94,8 @@ class CanAccessImportaciones(BasePermission):
             return False
         
         return (
-            has_permission(request.user, 'importaciones.ver_modulo')
-            or has_role(request.user, 'system_admin')
+            request.user.has_perm('usuarios.importaciones_ver_modulo')
+            or request.user.groups.filter(name='SystemAdmin').exists()
         )
 
 
@@ -107,8 +110,9 @@ class CanAccessAlmacen(BasePermission):
             return False
         
         return (
-            has_permission(request.user, 'almacen.ver_modulo')
-            or has_role(request.user, 'system_admin')
+            #has_permission(request.user, 'almacen.ver_modulo')
+            request.user.groups.filter(name='ialmacen.ver_modulo').exists()
+            or request.user.groups.filter(name='SystemAdmin').exists()
         )
 
 
@@ -124,7 +128,7 @@ class IsOwnerOrAdmin(BasePermission):
             return False
         
         # Administradores tienen acceso completo
-        if has_role(request.user, 'system_admin') or has_role(request.user, 'accounts_admin'):
+        if request.user.groups.filter(name='SystemAdmin').exists() or  request.user.groups.filter(name='accounts_admin').exists():
             return True
         
         # Verificar si el objeto tiene un campo 'user' o 'usuario'
@@ -164,9 +168,11 @@ class CanEditDocuments(BasePermission):
         
         # Para crear/editar/eliminar, verificar permisos específicos
         return (
-            has_permission(request.user, 'importaciones.administrar_documentos_dua')
-            or has_permission(request.user, 'proveedor.administrar_documentos')
-            or has_role(request.user, 'system_admin')
+            #has_permission(request.user, 'importaciones.administrar_documentos_dua')
+            request.user.has_perm('importaciones.administrar_documentos_dua')
+            #or has_permission(request.user, 'proveedor.administrar_documentos')
+            or request.user.has_perm('proveedor.administrar_documentos')
+            or request.user.groups.filter(name='SystemAdmin').exists()
         )
 
 
@@ -185,10 +191,10 @@ class CanDeleteResource(BasePermission):
         
         # Solo administradores pueden eliminar
         return (
-            has_role(request.user, 'system_admin')
-            or has_role(request.user, 'accounts_admin')
-            or has_role(request.user, 'importaciones_admin')
-            or has_role(request.user, 'almacen_admin')
+            request.user.groups.filter(name='SystemAdmin').exists()
+            or request.user.groups.filter(name='accounts_admin').exists()
+            or request.user.groups.filter(name= 'importaciones_admin').exists()
+            or request.user.groups.filter(name='almacen_admin').exists()
         )
 
 
@@ -208,6 +214,6 @@ class HasModulePermission(BasePermission):
             return False
         
         return (
-            has_permission(request.user, self.permission_required)
-            or has_role(request.user, 'system_admin')
+            request.user, self.permission_required
+            or request.user.groups.filter(name='SystemAdmin').exists()
         )
