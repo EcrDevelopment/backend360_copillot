@@ -15,7 +15,11 @@ import requests
 from .serializers import *
 from .utils import *
 import logging
-from usuarios.permissions import CanAccessAlmacen, IsAlmacenAdmin, ReadOnly
+from usuarios.permissions import (
+    CanAccessAlmacen, IsAlmacenAdmin, ReadOnly,
+    CanManageWarehouse, CanViewWarehouse, CanViewWarehouseReports,
+    CanManageStock, CanViewStock
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +27,9 @@ logger = logging.getLogger(__name__)
 class GremisionCabViewSet(viewsets.ViewSet):
     """
     API endpoint para consultar guías de remisión.
-    Requiere autenticación y acceso al módulo de almacén.
+    Requiere permiso para ver información de almacén.
     """
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
+    permission_classes = [IsAuthenticated, CanViewWarehouse]
 
     def list(self, request):
         empresa = request.query_params.get("empresa")
@@ -53,9 +57,9 @@ class GremisionCabViewSet(viewsets.ViewSet):
 class GremisionConsultaView(APIView):
     """
     API endpoint para consultar detalles de guías de remisión.
-    Requiere autenticación y acceso al módulo de almacén.
+    Requiere permiso para ver información de almacén.
     """
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
+    permission_classes = [IsAuthenticated, CanViewWarehouse]
 
     def get(self, request):
         empresa = request.query_params.get("empresa")
@@ -111,36 +115,52 @@ class EmpresaViewSet(viewsets.ModelViewSet):
 class AlmacenViewSet(viewsets.ModelViewSet):
     """
     API endpoint para ver y editar Almacenes.
-    Requiere acceso al módulo de almacén.
+    Requiere permiso de gestión de almacén para crear/editar, ver para consultar.
     """
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
     queryset = Almacen.objects.all()
     serializer_class = AlmacenSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['empresa']
+    
+    def get_permissions(self):
+        """
+        GET: requiere can_view_warehouse
+        POST/PUT/PATCH/DELETE: requiere can_manage_warehouse
+        """
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated(), CanViewWarehouse()]
+        return [IsAuthenticated(), CanManageWarehouse()]
 
 class ProductoViewSet(viewsets.ModelViewSet):
     """
     API endpoint para ver y editar Productos.
-    Requiere acceso al módulo de almacén.
+    Requiere permiso de gestión de almacén para crear/editar, ver para consultar.
     """
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
     queryset = Producto.objects.all()
     serializer_class = ProductoSerializer
 
     filter_backends = [DjangoFilterBackend]
     filterset_class = ProductoFilter
+    
+    def get_permissions(self):
+        """
+        GET: requiere can_view_warehouse
+        POST/PUT/PATCH/DELETE: requiere can_manage_warehouse
+        """
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated(), CanViewWarehouse()]
+        return [IsAuthenticated(), CanManageWarehouse()]
 
 class MovimientoAlmacenViewSet(viewsets.ReadOnlyModelViewSet): # Solo lectura
     """
     API endpoint para ver movimientos de almacén sincronizados.
     Permite filtros por empresa, almacen, producto, fechas, tipo, etc.
-    Requiere acceso al módulo de almacén.
+    Requiere permiso para ver información de almacén.
     Ej: /api/almacen/movimientos/?empresa=1&almacen=2&fecha_documento_desde=2025-10-01
     """
 
     serializer_class = MovimientoAlmacenSerializer
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
+    permission_classes = [IsAuthenticated, CanViewWarehouse]
     filter_backends = [DjangoFilterBackend, OrderingFilter] # Activa filtros y ordenación
     filterset_class = MovimientoAlmacenFilter # Usa la clase de filtro que definimos
     ordering_fields = [
@@ -220,11 +240,11 @@ class MovimientoAlmacenNotaViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint para ver las notas/glosas asociadas a movimientos.
     Permite filtrar por id_erp_cab.
-    Requiere acceso al módulo de almacén.
+    Requiere permiso para ver información de almacén.
     Ej: /api/almacen/movimiento-notas/?id_erp_cab=AD-NI-0000001
     """
     serializer_class = MovimientoAlmacenNotaSerializer
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
+    permission_classes = [IsAuthenticated, CanViewWarehouse]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     # Filtros simples para notas
     filterset_fields = ['empresa', 'id_erp_cab', 'id_erp_det']
@@ -236,10 +256,10 @@ class MovimientoAlmacenNotaViewSet(viewsets.ReadOnlyModelViewSet):
 class StockViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint para ver el Stock actual (calculado).
-    Es de solo lectura. Requiere acceso al módulo de almacén.
+    Es de solo lectura. Requiere permiso para ver stock.
     """
     serializer_class = StockSerializer
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
+    permission_classes = [IsAuthenticated, CanViewStock]
 
     # Conectar filtros y ordenación
     filter_backends = [DjangoFilterBackend, OrderingFilter]
@@ -308,9 +328,10 @@ class TransferenciaViewSet(mixins.ListModelMixin,
     - Lista (GET) con filtros potentes.
     - Detalle (GET /<id>/) para cualquier estado.
     - Recibir (POST /<id>/recibir/) para transferencias 'EN_TRANSITO'.
+    Requiere permiso para gestionar stock.
     """
     serializer_class = TransferenciaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanManageStock]
 
     # --- CAMBIO CLAVE #1: Queryset sin filtro de estado ---
     def get_queryset(self):

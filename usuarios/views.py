@@ -19,7 +19,11 @@ from django.contrib.auth.models import User, Group, Permission
 from .serializers import UserSerializer, RoleSerializer, PermissionSerializer, EmpresaSerializer,DireccionSerializer
 from localizacion.serializers import  DepartamentoSerializer,ProvinciaSerializer,DistritoSerializer
 from rest_framework.permissions import BasePermission
-from .permissions import IsAccountsAdmin, CanManageUsers
+from .permissions import (
+    IsAccountsAdmin, CanManageUsers,
+    CanManageUsersModule, CanViewUsersModule,
+    CanManageRoles, CanViewRoles
+)
 
 def get_csrf_token(request):
     csrf_token = get_token(request)
@@ -139,16 +143,15 @@ class CustomTokenRefreshView(TokenRefreshView):
 class PermissionViewSet(viewsets.ModelViewSet):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
         """
-        Allows GET for authenticated users (needed for frontend to display options).
-        Requires CanManageUsers for create/update/delete operations.
+        GET: requiere can_view_roles
+        POST/PUT/PATCH/DELETE: requiere can_manage_roles
         """
         if self.action in ['list', 'retrieve']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), CanManageUsers()]
+            return [permissions.IsAuthenticated(), CanViewRoles()]
+        return [permissions.IsAuthenticated(), CanManageRoles()]
     
     def get_queryset(self):
         """
@@ -185,16 +188,15 @@ class PermissionViewSet(viewsets.ModelViewSet):
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
         """
-        Allows GET for authenticated users (needed for frontend to display user roles).
-        Requires CanManageUsers for create/update/delete operations.
+        GET: requiere can_view_roles
+        POST/PUT/PATCH/DELETE: requiere can_manage_roles
         """
         if self.action in ['list', 'retrieve']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), CanManageUsers()]
+            return [permissions.IsAuthenticated(), CanViewRoles()]
+        return [permissions.IsAuthenticated(), CanManageRoles()]
     
     def get_queryset(self):
         """Filter roles based on user permissions"""
@@ -215,16 +217,15 @@ class RoleViewSet(viewsets.ModelViewSet):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.select_related("userprofile").all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
         """
-        Allows GET for authenticated users (users can view their own profile and admins can view all).
-        Requires CanManageUsers for create/update/delete operations.
+        GET: requiere can_view_users
+        POST/PUT/PATCH/DELETE: requiere can_manage_users
         """
         if self.action in ['list', 'retrieve']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), CanManageUsers()]
+            return [permissions.IsAuthenticated(), CanViewUsersModule()]
+        return [permissions.IsAuthenticated(), CanManageUsersModule()]
     
     def get_queryset(self):
         """Filter users based on permissions"""
