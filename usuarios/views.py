@@ -97,7 +97,44 @@ class CustomTokenRefreshView(TokenRefreshView):
         # Reemplazar los datos de la solicitud original con la copia mutable
         request._body = json.dumps(data)
         # Llamar al metodo original de TokenRefreshView
-        return super().post(request, *args, **kwargs)
+        response = super().post(request, *args, **kwargs)
+        
+        # If successful, add user information to match login response format
+        if response.status_code == 200:
+            try:
+                from rest_framework_simplejwt.tokens import RefreshToken
+                from .serializers import CustomTokenObtainPairSerializer
+                
+                # Decode the refresh token to get the user
+                refresh = RefreshToken(refresh_token)
+                user_id = refresh.get('user_id')
+                user = User.objects.get(id=user_id)
+                
+                # Add user info, roles, and permissions to response
+                response.data['user'] = {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'nombre': user.first_name,
+                    'apellido': user.last_name,
+                    'profile_id': None,
+                    'empresa_id': None
+                }
+                
+                profile = getattr(user, 'userprofile', None)
+                if profile:
+                    response.data['user']['telefono'] = profile.telefono if profile.telefono else None
+                    response.data['user']['empresa_id'] = profile.empresa.id if profile.empresa else None
+                
+                response.data['roles'] = list(user.groups.values_list('name', flat=True))
+                response.data['permissions'] = CustomTokenObtainPairSerializer._get_user_permissions(user)
+                
+            except Exception as e:
+                print(f"Error adding user info to refresh response: {e}")
+                # If there's an error, just return the access token without extra info
+                pass
+        
+        return response
 
 # Permission ViewSet - only admin roles can access
 class PermissionViewSet(viewsets.ModelViewSet):
