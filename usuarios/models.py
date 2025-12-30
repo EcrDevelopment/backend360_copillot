@@ -62,3 +62,22 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return str(self.token)
+
+
+class UsuariosPermissions(models.Model):
+    """
+    Meta modelo para definir permisos funcionales del módulo de Usuarios.
+    Este modelo no crea una tabla en la base de datos (managed=False).
+    Solo se usa para registrar permisos personalizados de alto nivel.
+    """
+    class Meta:
+        managed = False  # No crear tabla en la base de datos
+        default_permissions = ()  # No crear permisos automáticos (add, change, delete, view)
+        permissions = [
+            ('can_manage_users', 'Puede gestionar usuarios (crear, editar, eliminar)'),
+            ('can_view_users', 'Puede ver usuarios'),
+            ('can_manage_roles', 'Puede gestionar roles y permisos'),
+            ('can_view_roles', 'Puede ver roles y permisos'),
+        ]
+        verbose_name = 'Permiso de Usuarios'
+        verbose_name_plural = 'Permisos de Usuarios'

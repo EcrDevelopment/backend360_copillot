@@ -151,8 +151,24 @@ class PermissionViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated(), CanManageUsers()]
     
     def get_queryset(self):
-        """Filter permissions to show only relevant ones"""
-        return Permission.objects.all().select_related('content_type')
+        """
+        Filter permissions to show only functional/modular permissions.
+        Excludes default Django table-based permissions (add_, change_, delete_, view_).
+        Only returns custom permissions defined in our Permission Meta models.
+        """
+        # Get the content types for our functional permission models
+        functional_models = [
+            'usuariospermissions',  # usuarios.UsuariosPermissions
+            'almacenpermissions',   # almacen.AlmacenPermissions
+            'importacionespermissions'  # importaciones.ImportacionesPermissions
+        ]
+        
+        # Filter permissions to only include those from our functional permission models
+        queryset = Permission.objects.filter(
+            content_type__model__in=functional_models
+        ).select_related('content_type')
+        
+        return queryset
     
     @property
     def paginator(self):

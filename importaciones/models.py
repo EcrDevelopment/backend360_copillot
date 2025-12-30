@@ -445,6 +445,23 @@ class ExpedienteDeclaracion(BaseModel):
         return f"Expediente de {declaracion_str} - {documento_str}"
 
 
-
+class ImportacionesPermissions(models.Model):
+    """
+    Meta modelo para definir permisos funcionales del módulo de Importaciones.
+    Este modelo no crea una tabla en la base de datos (managed=False).
+    Solo se usa para registrar permisos personalizados de alto nivel.
+    """
+    class Meta:
+        managed = False  # No crear tabla en la base de datos
+        default_permissions = ()  # No crear permisos automáticos (add, change, delete, view)
+        permissions = [
+            ('can_manage_importaciones', 'Puede gestionar importaciones (DUA, declaraciones, proveedores)'),
+            ('can_view_importaciones', 'Puede ver información de importaciones'),
+            ('can_view_importaciones_reports', 'Puede ver reportes de importaciones'),
+            ('can_manage_documents', 'Puede gestionar documentos de importaciones'),
+            ('can_view_documents', 'Puede ver documentos de importaciones'),
+        ]
+        verbose_name = 'Permiso de Importaciones'
+        verbose_name_plural = 'Permisos de Importaciones'
 
 
