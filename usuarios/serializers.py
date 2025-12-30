@@ -30,10 +30,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        # Include roles (groups) in token
-        token['roles'] = list(user.groups.values_list('name', flat=True))
-        # Include all permissions (from groups and user-specific)
-        token['permissions'] = cls._get_user_permissions(user)
+        # Don't include roles and permissions in token payload to keep token size small
+        # Frontend should fetch roles and permissions separately via API endpoints
+        # Only include essential user identifier
+        token['username'] = user.username
         return token
 
     @staticmethod
@@ -70,8 +70,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'email': self.user.email,
             'nombre': self.user.first_name,
             'apellido': self.user.last_name,
-            'profile_id': None,
-            'empresa_id': None
         }
 
         profile = getattr(self.user, 'userprofile', None)
@@ -80,8 +78,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             user_info['empresa_id'] = profile.empresa.id if profile.empresa else None
 
         data['user'] = user_info
-        data['roles'] = list(self.user.groups.values_list('name', flat=True))
-        data['permissions'] = self._get_user_permissions(self.user)
+        
+        # Return only role and permission IDs, not full details
+        # This keeps the token size manageable
+        data['roles'] = list(self.user.groups.values_list('id', flat=True))
+        data['permissions'] = list(self.user.user_permissions.values_list('id', flat=True))
+        
+        # Frontend should fetch full role/permission details via separate API calls
+        # e.g., GET /api/accounts/usuarios/{user_id}/ to get complete user info
 
         return data
 

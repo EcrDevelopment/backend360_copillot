@@ -99,26 +99,25 @@ class CustomTokenRefreshView(TokenRefreshView):
         # Llamar al metodo original de TokenRefreshView
         response = super().post(request, *args, **kwargs)
         
-        # If successful, add user information to match login response format
+        # If successful, add minimal user information to match login response format
+        # Roles and permissions are fetched separately via API to avoid large token size
         if response.status_code == 200:
             try:
                 from rest_framework_simplejwt.tokens import RefreshToken
-                from .serializers import CustomTokenObtainPairSerializer
                 
                 # Decode the refresh token to get the user
                 refresh = RefreshToken(refresh_token)
                 user_id = refresh.get('user_id')
                 user = User.objects.get(id=user_id)
                 
-                # Add user info, roles, and permissions to response
+                # Add minimal user info to response
+                # Frontend should fetch full roles/permissions via separate API calls
                 response.data['user'] = {
                     'id': user.id,
                     'username': user.username,
                     'email': user.email,
                     'nombre': user.first_name,
                     'apellido': user.last_name,
-                    'profile_id': None,
-                    'empresa_id': None
                 }
                 
                 profile = getattr(user, 'userprofile', None)
@@ -126,8 +125,8 @@ class CustomTokenRefreshView(TokenRefreshView):
                     response.data['user']['telefono'] = profile.telefono if profile.telefono else None
                     response.data['user']['empresa_id'] = profile.empresa.id if profile.empresa else None
                 
-                response.data['roles'] = list(user.groups.values_list('name', flat=True))
-                response.data['permissions'] = CustomTokenObtainPairSerializer._get_user_permissions(user)
+                # Don't include full roles and permissions lists to keep response small
+                # Frontend fetches these separately via /api/accounts/usuarios/{id}/
                 
             except Exception as e:
                 print(f"Error adding user info to refresh response: {e}")
