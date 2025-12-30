@@ -10,8 +10,6 @@ from localizacion.serializers import DepartamentoSerializer, ProvinciaSerializer
 from .models import PasswordResetToken, UserProfile, Empresa, Direccion
 from  localizacion.models import  Departamento, Provincia, Distrito
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rolepermissions.roles import get_user_roles
-from rolepermissions.permissions import available_perm_status
 from django.contrib.auth.models import User, Group, Permission
 from .validators import InputValidator
 from .audit_log import AuditLog, get_client_ip
