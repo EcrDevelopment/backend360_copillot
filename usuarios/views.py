@@ -18,7 +18,6 @@ from rest_framework import viewsets, permissions
 from django.contrib.auth.models import User, Group, Permission
 from .serializers import UserSerializer, RoleSerializer, PermissionSerializer, EmpresaSerializer,DireccionSerializer
 from localizacion.serializers import  DepartamentoSerializer,ProvinciaSerializer,DistritoSerializer
-from rolepermissions.checkers import has_role
 from rest_framework.permissions import BasePermission
 from .permissions import IsAccountsAdmin, CanManageUsers
 
@@ -179,16 +178,16 @@ class UserViewSet(viewsets.ModelViewSet):
         """Filter users based on permissions"""
         user = self.request.user
         
-        # System admins see all users
-        if has_role(user, 'system_admin'):
+        # System admins see all users (using native Django Groups)
+        if user.groups.filter(name='SystemAdmin').exists():
             return User.objects.all().select_related("userprofile").prefetch_related('groups', 'user_permissions')
         
-        # Accounts admins see all users
-        if has_role(user, 'accounts_admin'):
+        # Accounts admins see all users (using native Django Groups)
+        if user.groups.filter(name='AccountsAdmin').exists():
             return User.objects.all().select_related("userprofile").prefetch_related('groups', 'user_permissions')
         
         # Regular users only see themselves
-        return User.objects.filter(id=user.id).select_related("userprofile")
+        return User.objects.filter(id=user.id).select_related("userprofile").prefetch_related('groups', 'user_permissions')
     
     @property
     def paginator(self):
