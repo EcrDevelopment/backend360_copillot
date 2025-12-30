@@ -118,6 +118,17 @@ class PermissionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter permissions to show only relevant ones"""
         return Permission.objects.all().select_related('content_type')
+    
+    @property
+    def paginator(self):
+        """
+        Conditionally disable pagination based on query parameters.
+        Use ?pagination=off or ?all=true to get all results without pagination.
+        """
+        if self.request.query_params.get('pagination') == 'off' or \
+           self.request.query_params.get('all') == 'true':
+            return None
+        return super().paginator
 
 # Role ViewSet - only admin roles can manage
 class RoleViewSet(viewsets.ModelViewSet):
@@ -137,6 +148,17 @@ class RoleViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter roles based on user permissions"""
         return Group.objects.all().prefetch_related('permissions')
+    
+    @property
+    def paginator(self):
+        """
+        Conditionally disable pagination based on query parameters.
+        Use ?pagination=off or ?all=true to get all results without pagination.
+        """
+        if self.request.query_params.get('pagination') == 'off' or \
+           self.request.query_params.get('all') == 'true':
+            return None
+        return super().paginator
 
 # User ViewSet - only admin roles can manage
 class UserViewSet(viewsets.ModelViewSet):
@@ -167,6 +189,17 @@ class UserViewSet(viewsets.ModelViewSet):
         
         # Regular users only see themselves
         return User.objects.filter(id=user.id).select_related("userprofile")
+    
+    @property
+    def paginator(self):
+        """
+        Conditionally disable pagination based on query parameters.
+        Use ?pagination=off or ?all=true to get all results without pagination.
+        """
+        if self.request.query_params.get('pagination') == 'off' or \
+           self.request.query_params.get('all') == 'true':
+            return None
+        return super().paginator
 
 @api_view(['GET'])
 def fetch_content_types(request):
