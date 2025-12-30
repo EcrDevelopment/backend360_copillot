@@ -213,8 +213,16 @@ class HasModulePermission(BasePermission):
         permission_classes = [HasModulePermission]
         permission_required = 'almacen.can_manage_warehouse'
     
-    3. With multiple permissions (any match):
+    3. With multiple permissions (OR logic - user needs ANY one):
         permission_required = ['almacen.can_manage_warehouse', 'almacen.can_view_warehouse']
+        
+        IMPORTANT: Multiple permissions use OR logic (any match grants access).
+        If you need ALL permissions, use multiple permission classes instead:
+        permission_classes = [CanManageWarehouse, CanViewWarehouse]
+    
+    Note: The view's permission_required attribute takes precedence over the 
+    permission class's permission_required. This allows flexible permission 
+    assignment but should be used consistently within your codebase.
     """
     permission_required = None
     message = "No tiene los permisos requeridos para esta acción."
@@ -228,12 +236,14 @@ class HasModulePermission(BasePermission):
             return True
         
         # Get permission_required from view if not set on permission class
+        # Note: View's permission_required takes precedence for flexibility
         permission = self.permission_required or getattr(view, 'permission_required', None)
         
         if not permission:
             return False
         
-        # Support multiple permissions (user needs any one of them)
+        # Support multiple permissions (OR logic - user needs any one of them)
+        # For AND logic, use multiple permission classes instead
         if isinstance(permission, (list, tuple)):
             return any(request.user.has_perm(perm) for perm in permission)
         

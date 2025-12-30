@@ -158,17 +158,30 @@ class PermissionViewSet(viewsets.ModelViewSet):
         Filter permissions to show only functional/modular permissions.
         Excludes default Django table-based permissions (add_, change_, delete_, view_).
         Only returns custom permissions defined in our Permission Meta models.
+        
+        Functional permission models are configured in settings.FUNCTIONAL_PERMISSION_MODELS
         """
-        # Get the content types for our functional permission models
-        functional_models = [
-            'usuariospermissions',  # usuarios.UsuariosPermissions
-            'almacenpermissions',   # almacen.AlmacenPermissions
-            'importacionespermissions'  # importaciones.ImportacionesPermissions
-        ]
+        from django.conf import settings
+        from django.apps import apps
+        
+        # Get configured functional permission models from settings
+        functional_model_names = getattr(settings, 'FUNCTIONAL_PERMISSION_MODELS', [])
+        
+        # Extract model names (lowercase) from full app.Model paths
+        model_names = []
+        for full_name in functional_model_names:
+            try:
+                app_label, model_name = full_name.split('.')
+                # Get the actual model to ensure it exists
+                model = apps.get_model(app_label, model_name)
+                model_names.append(model._meta.model_name.lower())
+            except (ValueError, LookupError):
+                # Skip invalid or non-existent models
+                continue
         
         # Filter permissions to only include those from our functional permission models
         queryset = Permission.objects.filter(
-            content_type__model__in=functional_models
+            content_type__model__in=model_names
         ).select_related('content_type')
         
         return queryset
