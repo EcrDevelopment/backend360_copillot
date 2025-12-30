@@ -18,13 +18,44 @@ from .audit_log import AuditLog, get_client_ip
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Custom JWT token serializer that includes user roles and permissions.
+    Uses Django's native auth system (Groups and Permissions).
+    """
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        token['roles'] = [role.get_name() for role in get_user_roles(user)]
-        token['permissions'] = available_perm_status(user)
+        # Include roles (groups) in token
+        token['roles'] = list(user.groups.values_list('name', flat=True))
+        # Include all permissions (from groups and user-specific)
+        token['permissions'] = cls._get_user_permissions(user)
         return token
+
+    @staticmethod
+    def _get_user_permissions(user):
+        """
+        Get all permissions for user (from groups + user-specific permissions).
+        Returns a dict with permission codenames as keys and True as values.
+        """
+        permissions = {}
+        
+        # Get all permissions (including from groups)
+        all_perms = user.get_all_permissions()
+        
+        # Convert to dict format: {'app.permission_codename': True}
+        for perm in all_perms:
+            permissions[perm.replace('.', '_')] = True
+        
+        # Also add codename-only format for backwards compatibility
+        for perm in user.user_permissions.all():
+            permissions[perm.codename] = True
+        
+        for group in user.groups.all():
+            for perm in group.permissions.all():
+                permissions[perm.codename] = True
+        
+        return permissions
 
     def validate(self, attrs):
         data = super().validate(attrs)
@@ -45,8 +76,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             user_info['empresa_id'] = profile.empresa.id if profile.empresa else None
 
         data['user'] = user_info
-        data['roles'] = [role.get_name() for role in get_user_roles(self.user)]
-        data['permissions'] = available_perm_status(self.user)
+        data['roles'] = list(self.user.groups.values_list('name', flat=True))
+        data['permissions'] = self._get_user_permissions(self.user)
 
         return data
 
