@@ -28,6 +28,25 @@ DOCUMENTACIÓN:
 - Ver FRONTEND_INTEGRATION.md para ejemplos de código de integración
 */
 
+
+/*
+Esta menu que me sugieres si bien es cierto acota mucho mejor los permisos y los hace mas funcionales, sin embargo
+por ejemplo en la seccion de proveedores comparte lo mismo que en la seccion importaciones, lo que hace que si a un usuario
+de tipo proveedor le doy el permiso de ver importaciones, automaticamente pueda ver las opciones de importaciones cosa que no
+deberia ocurrir. Por otro lado, en la seccion de usuarios, si bien es cierto que se puede acotar mas los permisos, en este caso
+se esta manejando un permiso general para administrar usuarios, roles y permisos ya que en la mayoria de los casos
+el usuario que tiene acceso a esta seccion es un administrador general que puede hacer todo.
+
+por otro lado en la seccion de tablas estan dando permisos para gestionar usuarios me parece cosa que no deberia
+suceder tampoco ya que no tiene nada que ver. Esta seccion de tablas es una especie de seccion de mantenimiento del sistema
+donde se manejan tablas que son usadas en varios modulos del sistema como tipos de documentos, empresas, productos,
+almacenes y tipos de estibaje. Por lo tanto el permiso deberia ser mas general para gestionar estas tablas de mantenimiento
+y no permisos especificos de usuarios. o en todo caso permisos especificos para cada tabla pero no relacionados con usuarios.
+
+y ya que es una tabla de este tipo podria ser un permiso general como "miscelanea.can_manage_tables" o algo similar. aunque
+preferiria que sea un permiso mas especifico para cada tabla pero no relacionado con usuarios.
+*/
+
 const menuConfig = [
   {
     key: '1',
