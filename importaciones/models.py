@@ -450,16 +450,27 @@ class ImportacionesPermissions(models.Model):
     Meta modelo para definir permisos funcionales del módulo de Importaciones.
     Este modelo no crea una tabla en la base de datos (managed=False).
     Solo se usa para registrar permisos personalizados de alto nivel.
+    
+    Incluye permisos modulares Y granulares para control específico.
     """
     class Meta:
         managed = False  # No crear tabla en la base de datos
         default_permissions = ()  # No crear permisos automáticos (add, change, delete, view)
         permissions = [
-            ('can_manage_importaciones', 'Puede gestionar importaciones (DUA, declaraciones, proveedores)'),
+            # Permisos modulares (alto nivel)
+            ('can_manage_importaciones', 'Puede gestionar importaciones (DUA, declaraciones)'),
             ('can_view_importaciones', 'Puede ver información de importaciones'),
             ('can_view_importaciones_reports', 'Puede ver reportes de importaciones'),
             ('can_manage_documents', 'Puede gestionar documentos de importaciones'),
             ('can_view_documents', 'Puede ver documentos de importaciones'),
+            
+            # Permisos granulares (acciones específicas)
+            ('can_create_importaciones', 'Puede crear importaciones'),
+            ('can_edit_importaciones', 'Puede editar importaciones'),
+            ('can_delete_importaciones', 'Puede eliminar importaciones'),
+            ('can_create_documents', 'Puede crear/subir documentos'),
+            ('can_edit_documents', 'Puede editar documentos'),
+            ('can_delete_documents', 'Puede eliminar documentos'),
         ]
         verbose_name = 'Permiso de Importaciones'
         verbose_name_plural = 'Permisos de Importaciones'

@@ -1122,16 +1122,27 @@ class AlmacenPermissions(models.Model):
     Meta modelo para definir permisos funcionales del módulo de Almacén.
     Este modelo no crea una tabla en la base de datos (managed=False).
     Solo se usa para registrar permisos personalizados de alto nivel.
+    
+    Incluye permisos modulares Y granulares para control específico.
     """
     class Meta:
         managed = False  # No crear tabla en la base de datos
         default_permissions = ()  # No crear permisos automáticos (add, change, delete, view)
         permissions = [
+            # Permisos modulares (alto nivel)
             ('can_manage_warehouse', 'Puede gestionar almacén (guías, detalles, kardex, movimientos)'),
             ('can_view_warehouse', 'Puede ver información de almacén'),
             ('can_view_warehouse_reports', 'Puede ver reportes de almacén'),
             ('can_manage_stock', 'Puede gestionar stock y transferencias'),
             ('can_view_stock', 'Puede ver stock'),
+            
+            # Permisos granulares (acciones específicas)
+            ('can_create_movements', 'Puede crear movimientos de almacén'),
+            ('can_edit_movements', 'Puede editar movimientos de almacén'),
+            ('can_delete_movements', 'Puede eliminar movimientos de almacén'),
+            ('can_create_transfers', 'Puede crear transferencias'),
+            ('can_edit_transfers', 'Puede editar transferencias'),
+            ('can_approve_transfers', 'Puede aprobar transferencias'),
         ]
         verbose_name = 'Permiso de Almacén'
         verbose_name_plural = 'Permisos de Almacén'

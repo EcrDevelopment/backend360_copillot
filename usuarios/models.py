@@ -69,15 +69,69 @@ class UsuariosPermissions(models.Model):
     Meta modelo para definir permisos funcionales del módulo de Usuarios.
     Este modelo no crea una tabla en la base de datos (managed=False).
     Solo se usa para registrar permisos personalizados de alto nivel.
+    
+    Incluye permisos modulares Y granulares para control específico.
     """
     class Meta:
         managed = False  # No crear tabla en la base de datos
         default_permissions = ()  # No crear permisos automáticos (add, change, delete, view)
         permissions = [
+            # Permisos modulares (alto nivel)
             ('can_manage_users', 'Puede gestionar usuarios (crear, editar, eliminar)'),
             ('can_view_users', 'Puede ver usuarios'),
             ('can_manage_roles', 'Puede gestionar roles y permisos'),
             ('can_view_roles', 'Puede ver roles y permisos'),
+            
+            # Permisos granulares (acciones específicas)
+            ('can_create_users', 'Puede crear usuarios'),
+            ('can_edit_users', 'Puede editar usuarios'),
+            ('can_delete_users', 'Puede eliminar usuarios'),
+            ('can_create_roles', 'Puede crear roles'),
+            ('can_edit_roles', 'Puede editar roles'),
+            ('can_delete_roles', 'Puede eliminar roles'),
         ]
         verbose_name = 'Permiso de Usuarios'
         verbose_name_plural = 'Permisos de Usuarios'
+
+
+class MantenimientoPermissions(models.Model):
+    """
+    Meta modelo para permisos de tablas de mantenimiento/misceláneas.
+    Controla acceso a tablas de configuración del sistema.
+    """
+    class Meta:
+        managed = False
+        default_permissions = ()
+        permissions = [
+            # Permisos modulares
+            ('can_manage_maintenance_tables', 'Puede gestionar todas las tablas de mantenimiento'),
+            ('can_view_maintenance_tables', 'Puede ver tablas de mantenimiento'),
+            
+            # Permisos específicos por tabla
+            ('can_manage_document_types', 'Puede gestionar tipos de documentos'),
+            ('can_manage_companies', 'Puede gestionar empresas'),
+            ('can_manage_product_catalog', 'Puede gestionar catálogo de productos'),
+            ('can_manage_warehouse_catalog', 'Puede gestionar catálogo de almacenes'),
+            ('can_manage_stowage_types', 'Puede gestionar tipos de estibaje'),
+        ]
+        verbose_name = 'Permiso de Mantenimiento'
+        verbose_name_plural = 'Permisos de Mantenimiento'
+
+
+class ProveedorPermissions(models.Model):
+    """
+    Meta modelo para permisos específicos de proveedores.
+    Separado de importaciones para control independiente.
+    """
+    class Meta:
+        managed = False
+        default_permissions = ()
+        permissions = [
+            # Permisos para rol de proveedor
+            ('can_upload_documents', 'Puede cargar documentos DUA'),
+            ('can_manage_own_documents', 'Puede gestionar sus propios documentos'),
+            ('can_view_own_documents', 'Puede ver sus propios documentos'),
+            ('can_download_own_documents', 'Puede descargar sus propios documentos'),
+        ]
+        verbose_name = 'Permiso de Proveedor'
+        verbose_name_plural = 'Permisos de Proveedor'
