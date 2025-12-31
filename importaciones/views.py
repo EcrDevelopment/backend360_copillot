@@ -57,7 +57,11 @@ from rest_framework.views import APIView
 from django.contrib.contenttypes.models import ContentType
 from .utilities.dto_despacho import *
 import mimetypes
-from usuarios.permissions import CanAccessImportaciones, IsImportacionesAdmin, CanEditDocuments, CanDeleteResource
+from usuarios.permissions import (
+    CanAccessImportaciones, IsImportacionesAdmin, CanEditDocuments, CanDeleteResource,
+    CanManageImportaciones, CanViewImportaciones, CanViewImportacionesReports,
+    CanManageDocuments, CanViewDocuments
+)
 
 
 

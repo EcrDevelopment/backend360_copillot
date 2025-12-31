@@ -19,7 +19,11 @@ from django.contrib.auth.models import User, Group, Permission
 from .serializers import UserSerializer, RoleSerializer, PermissionSerializer, EmpresaSerializer,DireccionSerializer
 from localizacion.serializers import  DepartamentoSerializer,ProvinciaSerializer,DistritoSerializer
 from rest_framework.permissions import BasePermission
-from .permissions import IsAccountsAdmin, CanManageUsers
+from .permissions import (
+    IsAccountsAdmin, CanManageUsers,
+    CanManageUsersModule, CanViewUsersModule,
+    CanManageRoles, CanViewRoles
+)
 
 def get_csrf_token(request):
     csrf_token = get_token(request)
@@ -139,20 +143,48 @@ class CustomTokenRefreshView(TokenRefreshView):
 class PermissionViewSet(viewsets.ModelViewSet):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
         """
-        Allows GET for authenticated users (needed for frontend to display options).
-        Requires CanManageUsers for create/update/delete operations.
+        GET: requiere can_view_roles
+        POST/PUT/PATCH/DELETE: requiere can_manage_roles
         """
         if self.action in ['list', 'retrieve']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), CanManageUsers()]
+            return [permissions.IsAuthenticated(), CanViewRoles()]
+        return [permissions.IsAuthenticated(), CanManageRoles()]
     
     def get_queryset(self):
-        """Filter permissions to show only relevant ones"""
-        return Permission.objects.all().select_related('content_type')
+        """
+        Filter permissions to show only functional/modular permissions.
+        Excludes default Django table-based permissions (add_, change_, delete_, view_).
+        Only returns custom permissions defined in our Permission Meta models.
+        
+        Functional permission models are configured in settings.FUNCTIONAL_PERMISSION_MODELS
+        """
+        from django.conf import settings
+        from django.apps import apps
+        
+        # Get configured functional permission models from settings
+        functional_model_names = getattr(settings, 'FUNCTIONAL_PERMISSION_MODELS', [])
+        
+        # Extract model names (lowercase) from full app.Model paths
+        model_names = []
+        for full_name in functional_model_names:
+            try:
+                app_label, model_name = full_name.split('.')
+                # Get the actual model to ensure it exists
+                model = apps.get_model(app_label, model_name)
+                model_names.append(model._meta.model_name.lower())
+            except (ValueError, LookupError):
+                # Skip invalid or non-existent models
+                continue
+        
+        # Filter permissions to only include those from our functional permission models
+        queryset = Permission.objects.filter(
+            content_type__model__in=model_names
+        ).select_related('content_type')
+        
+        return queryset
     
     @property
     def paginator(self):
@@ -169,16 +201,15 @@ class PermissionViewSet(viewsets.ModelViewSet):
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
         """
-        Allows GET for authenticated users (needed for frontend to display user roles).
-        Requires CanManageUsers for create/update/delete operations.
+        GET: requiere can_view_roles
+        POST/PUT/PATCH/DELETE: requiere can_manage_roles
         """
         if self.action in ['list', 'retrieve']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), CanManageUsers()]
+            return [permissions.IsAuthenticated(), CanViewRoles()]
+        return [permissions.IsAuthenticated(), CanManageRoles()]
     
     def get_queryset(self):
         """Filter roles based on user permissions"""
@@ -199,16 +230,15 @@ class RoleViewSet(viewsets.ModelViewSet):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.select_related("userprofile").all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
         """
-        Allows GET for authenticated users (users can view their own profile and admins can view all).
-        Requires CanManageUsers for create/update/delete operations.
+        GET: requiere can_view_users
+        POST/PUT/PATCH/DELETE: requiere can_manage_users
         """
         if self.action in ['list', 'retrieve']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), CanManageUsers()]
+            return [permissions.IsAuthenticated(), CanViewUsersModule()]
+        return [permissions.IsAuthenticated(), CanManageUsersModule()]
     
     def get_queryset(self):
         """Filter users based on permissions"""

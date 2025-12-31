@@ -1117,4 +1117,22 @@ class GastoDocumentoAlmacen(base.models.BaseModel):  # Hereda de BaseModel
         return f"{self.get_tipo_gasto_display()} - {self.monto} ({self.id_erp_cab})"
 
 
+class AlmacenPermissions(models.Model):
+    """
+    Meta modelo para definir permisos funcionales del módulo de Almacén.
+    Este modelo no crea una tabla en la base de datos (managed=False).
+    Solo se usa para registrar permisos personalizados de alto nivel.
+    """
+    class Meta:
+        managed = False  # No crear tabla en la base de datos
+        default_permissions = ()  # No crear permisos automáticos (add, change, delete, view)
+        permissions = [
+            ('can_manage_warehouse', 'Puede gestionar almacén (guías, detalles, kardex, movimientos)'),
+            ('can_view_warehouse', 'Puede ver información de almacén'),
+            ('can_view_warehouse_reports', 'Puede ver reportes de almacén'),
+            ('can_manage_stock', 'Puede gestionar stock y transferencias'),
+            ('can_view_stock', 'Puede ver stock'),
+        ]
+        verbose_name = 'Permiso de Almacén'
+        verbose_name_plural = 'Permisos de Almacén'
 
