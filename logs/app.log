@@ -24980,3 +24980,5 @@ WARNING 2025-12-30 14:56:53,837 log Unauthorized: /api/accounts/empresas/
 WARNING 2025-12-30 14:56:53,838 runserver HTTP GET /api/accounts/empresas/?all=true 401 [0.01, 127.0.0.1:32970]
 WARNING 2025-12-30 14:56:53,855 log Unauthorized: /api/accounts/permisos
 WARNING 2025-12-30 14:56:53,856 runserver HTTP GET /api/accounts/permisos?all=true 401 [0.02, 127.0.0.1:32086]
+WARNING 2026-01-02 10:18:37,157 log Not Found: /favicon.ico
+WARNING 2026-01-02 10:18:37,162 runserver HTTP GET /favicon.ico 404 [0.03, 127.0.0.1:55319]
