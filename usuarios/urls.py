@@ -54,5 +54,61 @@ urlpatterns = [
     path('provincias/', ProvinciaListView.as_view(), name='provincia-list'),
     path('distritos/', DistritoListView.as_view(), name='distrito-list'),
 
+    # ========================================
+    # Dynamic Permission System URLs
+    # ========================================
+    
+    # Permission Categories
+    path('permission-categories', CustomPermissionCategoryViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='permission-categories'),
+    path('permission-categories/<int:pk>', CustomPermissionCategoryViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='permission-category-detail'),
+    path('permission-categories/<int:pk>/permissions', CustomPermissionCategoryViewSet.as_view({
+        'get': 'permissions'
+    }), name='permission-category-permissions'),
+    
+    # Custom Permissions
+    path('custom-permissions', CustomPermissionViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='custom-permissions'),
+    path('custom-permissions/<int:pk>', CustomPermissionViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='custom-permission-detail'),
+    path('custom-permissions/<int:pk>/history', CustomPermissionViewSet.as_view({
+        'get': 'history'
+    }), name='custom-permission-history'),
+    path('custom-permissions/<int:pk>/hierarchy', CustomPermissionViewSet.as_view({
+        'get': 'hierarchy'
+    }), name='custom-permission-hierarchy'),
+    path('custom-permissions/assign', CustomPermissionViewSet.as_view({
+        'post': 'assign'
+    }), name='custom-permission-assign'),
+    path('custom-permissions/bulk_create', CustomPermissionViewSet.as_view({
+        'post': 'bulk_create'
+    }), name='custom-permission-bulk-create'),
+    
+    # Permission Audit Logs
+    path('permission-audits', PermissionChangeAuditViewSet.as_view({
+        'get': 'list'
+    }), name='permission-audits'),
+    path('permission-audits/<int:pk>', PermissionChangeAuditViewSet.as_view({
+        'get': 'retrieve'
+    }), name='permission-audit-detail'),
+    path('permission-audits/recent', PermissionChangeAuditViewSet.as_view({
+        'get': 'recent'
+    }), name='permission-audits-recent'),
+    path('permission-audits/by_user', PermissionChangeAuditViewSet.as_view({
+        'get': 'by_user'
+    }), name='permission-audits-by-user'),
 
 ]

@@ -318,4 +318,219 @@ class EmpresaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+# ========================================
+# DYNAMIC PERMISSION SYSTEM SERIALIZERS
+# ========================================
+
+from .models import CustomPermissionCategory, CustomPermission, PermissionChangeAudit
+
+
+class CustomPermissionCategorySerializer(serializers.ModelSerializer):
+    """
+    Serializer para categorías de permisos dinámicos.
+    """
+    permissions_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomPermissionCategory
+        fields = [
+            'id', 'name', 'display_name', 'description', 'icon', 'order',
+            'state', 'created_date', 'modified_date', 'permissions_count'
+        ]
+        read_only_fields = ['id', 'created_date', 'modified_date']
+    
+    def get_permissions_count(self, obj):
+        """Retorna el número de permisos activos en esta categoría"""
+        return obj.permissions.filter(state=True).count()
+
+
+class CustomPermissionSerializer(serializers.ModelSerializer):
+    """
+    Serializer para permisos dinámicos.
+    Incluye validación de formato y jerarquía.
+    """
+    category_name = serializers.CharField(source='category.display_name', read_only=True)
+    parent_permission_name = serializers.CharField(source='parent_permission.name', read_only=True)
+    django_permission_id = serializers.IntegerField(source='django_permission.id', read_only=True)
+    child_permissions = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomPermission
+        fields = [
+            'id', 'category', 'category_name', 'codename', 'name', 'description',
+            'permission_type', 'action_type', 'parent_permission', 'parent_permission_name',
+            'django_permission', 'django_permission_id', 'is_system', 'state',
+            'created_date', 'modified_date', 'child_permissions'
+        ]
+        read_only_fields = ['id', 'django_permission', 'created_date', 'modified_date']
+    
+    def get_child_permissions(self, obj):
+        """Retorna los permisos hijos activos"""
+        children = obj.child_permissions.filter(state=True)
+        return [{'id': c.id, 'name': c.name, 'codename': c.codename} for c in children]
+    
+    def validate_codename(self, value):
+        """Valida que el codename tenga el formato correcto"""
+        if not value.startswith('can_'):
+            raise serializers.ValidationError("El codename debe empezar con 'can_'")
+        
+        # Validar que solo contenga letras minúsculas y guiones bajos
+        import re
+        if not re.match(r'^can_[a-z_]+$', value):
+            raise serializers.ValidationError(
+                "El codename solo puede contener letras minúsculas y guiones bajos después de 'can_'"
+            )
+        
+        return value
+    
+    def validate(self, attrs):
+        """Validaciones adicionales"""
+        # Validar que no se cree jerarquía circular
+        if 'parent_permission' in attrs and attrs['parent_permission']:
+            parent = attrs['parent_permission']
+            if self.instance and parent.id == self.instance.id:
+                raise serializers.ValidationError({
+                    'parent_permission': 'Un permiso no puede ser su propio padre'
+                })
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Crea el permiso y registra la auditoría"""
+        from .audit_log import get_client_ip
+        
+        permission = super().create(validated_data)
+        
+        # Crear registro de auditoría
+        request = self.context.get('request')
+        if request:
+            PermissionChangeAudit.objects.create(
+                permission=permission,
+                action='created',
+                performed_by=request.user,
+                ip_address=get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                reason=f"Permiso creado via API"
+            )
+        
+        return permission
+    
+    def update(self, instance, validated_data):
+        """Actualiza el permiso y registra la auditoría"""
+        from .audit_log import get_client_ip
+        
+        # Guardar valores anteriores para auditoría
+        before_value = {
+            'name': instance.name,
+            'description': instance.description,
+            'permission_type': instance.permission_type,
+            'action_type': instance.action_type,
+            'parent_permission_id': instance.parent_permission_id if instance.parent_permission else None
+        }
+        
+        permission = super().update(instance, validated_data)
+        
+        # Crear registro de auditoría
+        request = self.context.get('request')
+        if request:
+            PermissionChangeAudit.objects.create(
+                permission=permission,
+                action='updated',
+                performed_by=request.user,
+                before_value=before_value,
+                after_value={
+                    'name': permission.name,
+                    'description': permission.description,
+                    'permission_type': permission.permission_type,
+                    'action_type': permission.action_type,
+                    'parent_permission_id': permission.parent_permission_id if permission.parent_permission else None
+                },
+                ip_address=get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                reason=f"Permiso actualizado via API"
+            )
+        
+        return permission
+
+
+class PermissionChangeAuditSerializer(serializers.ModelSerializer):
+    """
+    Serializer para registros de auditoría de permisos.
+    Solo lectura.
+    """
+    permission_name = serializers.CharField(source='permission.name', read_only=True)
+    permission_codename = serializers.CharField(source='permission.codename', read_only=True)
+    performed_by_username = serializers.CharField(source='performed_by.username', read_only=True)
+    target_user_username = serializers.CharField(source='target_user.username', read_only=True)
+    target_group_name = serializers.CharField(source='target_group.name', read_only=True)
+    
+    class Meta:
+        model = PermissionChangeAudit
+        fields = [
+            'id', 'permission', 'permission_name', 'permission_codename',
+            'action', 'performed_by', 'performed_by_username',
+            'target_user', 'target_user_username',
+            'target_group', 'target_group_name',
+            'before_value', 'after_value', 'reason',
+            'ip_address', 'user_agent', 'created_date'
+        ]
+        read_only_fields = fields  # Todos son de solo lectura
+
+
+class PermissionAssignmentSerializer(serializers.Serializer):
+    """
+    Serializer para asignar/revocar permisos a usuarios o grupos.
+    """
+    permission_id = serializers.IntegerField(required=True)
+    user_id = serializers.IntegerField(required=False, allow_null=True)
+    group_id = serializers.IntegerField(required=False, allow_null=True)
+    action = serializers.ChoiceField(choices=['assign', 'revoke'], required=True)
+    reason = serializers.CharField(required=False, allow_blank=True)
+    
+    def validate(self, attrs):
+        """Valida que se especifique usuario O grupo, pero no ambos"""
+        user_id = attrs.get('user_id')
+        group_id = attrs.get('group_id')
+        
+        if not user_id and not group_id:
+            raise serializers.ValidationError(
+                "Debe especificar user_id o group_id"
+            )
+        
+        if user_id and group_id:
+            raise serializers.ValidationError(
+                "Solo puede especificar user_id O group_id, no ambos"
+            )
+        
+        # Validar que el permiso existe
+        try:
+            permission = CustomPermission.objects.get(id=attrs['permission_id'], state=True)
+            attrs['permission'] = permission
+        except CustomPermission.DoesNotExist:
+            raise serializers.ValidationError({
+                'permission_id': 'El permiso no existe o está inactivo'
+            })
+        
+        # Validar que el usuario existe
+        if user_id:
+            try:
+                user = User.objects.get(id=user_id)
+                attrs['user'] = user
+            except User.DoesNotExist:
+                raise serializers.ValidationError({
+                    'user_id': 'El usuario no existe'
+                })
+        
+        # Validar que el grupo existe
+        if group_id:
+            try:
+                group = Group.objects.get(id=group_id)
+                attrs['group'] = group
+            except Group.DoesNotExist:
+                raise serializers.ValidationError({
+                    'group_id': 'El grupo no existe'
+                })
+        
+        return attrs
+
 
