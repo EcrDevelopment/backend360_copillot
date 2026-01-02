@@ -4,6 +4,8 @@
 
 Este documento describe cómo implementar un sistema que permite a los administradores crear, editar y eliminar permisos funcionales dinámicamente desde el frontend, sin necesidad de modificar código o crear migraciones.
 
+**IMPORTANTE**: Esta implementación utiliza el sistema de auditoría existente con `django-simple-history` y `BaseModel`. Ver `AUDIT_INTEGRATION_GUIDE.md` para detalles completos de integración con auditoría.
+
 ## Arquitectura
 
 ### Componentes del Sistema
@@ -12,22 +14,30 @@ Este documento describe cómo implementar un sistema que permite a los administr
 2. **API de Gestión de Permisos** - Endpoints CRUD para administrar permisos
 3. **Interfaz de Administración** - UI en frontend para gestión de permisos
 4. **Sistema de Validación** - Asegura que solo administradores pueden crear permisos
+5. **Sistema de Auditoría** - Integrado con BaseModel y django-simple-history
 
 ## Implementación Backend
 
 ### 1. Modelo de Permisos Dinámicos
 
+**NOTA**: Estos modelos heredan de `BaseModel` para aprovechar el sistema de auditoría existente con `django-simple-history`. Esto proporciona:
+- Tracking automático de cambios (HistoricalRecords)
+- Soft delete
+- Campos de auditoría (created_date, modified_date, deleted_date)
+- Tracking de usuario vía JWTCompatibleHistoryMiddleware
+
 ```python
 # usuarios/models.py
 
-from django.db import models
+from base.models import BaseModel
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 
-class CustomPermissionCategory(models.Model):
+class CustomPermissionCategory(BaseModel):
     """
-    Categorías para organizar permisos personalizados
+    Categorías para organizar permisos personalizados.
+    Hereda de BaseModel para auditoría completa automática.
     Ejemplos: 'usuarios', 'almacen', 'importaciones', 'ventas', 'finanzas'
     """
     name = models.CharField(max_length=100, unique=True)
@@ -36,9 +46,9 @@ class CustomPermissionCategory(models.Model):
     icon = models.CharField(max_length=50, blank=True, null=True)  # Para UI
     order = models.IntegerField(default=0)  # Para ordenar en UI
     is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, related_name='created_categories')
+    
+    # NO necesitamos created_at, updated_at, created_by - vienen de BaseModel
+    # BaseModel proporciona: state, created_date, modified_date, deleted_date, historical
     
     class Meta:
         verbose_name = 'Categoría de Permiso'
@@ -49,9 +59,10 @@ class CustomPermissionCategory(models.Model):
         return self.display_name
 
 
-class CustomPermission(models.Model):
+class CustomPermission(BaseModel):
     """
     Permisos personalizados creados dinámicamente por administradores.
+    Hereda de BaseModel para auditoría completa automática.
     Se sincronizan automáticamente con django.contrib.auth.models.Permission
     """
     PERMISSION_TYPES = [
@@ -92,16 +103,15 @@ class CustomPermission(models.Model):
     equivalent_permissions = models.ManyToManyField('self', blank=True, symmetrical=True,
                                                     help_text="Permisos equivalentes que también otorgan este acceso")
     
-    # Estado y metadata
+    # Estado
     is_active = models.BooleanField(default=True)
     is_system = models.BooleanField(default=False, 
                                     help_text="Permisos del sistema no pueden ser eliminados")
     order = models.IntegerField(default=0)
     
-    # Auditoría
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, related_name='created_permissions')
+    # NO necesitamos campos de auditoría - vienen de BaseModel
+    # BaseModel proporciona: state, created_date, modified_date, deleted_date, historical
+    # El tracking de usuario se maneja automáticamente vía HistoricalRecords + JWTCompatibleHistoryMiddleware
     
     # Referencia a Permission de Django
     django_permission = models.OneToOneField(Permission, on_delete=models.SET_NULL, null=True, blank=True,
@@ -158,8 +168,23 @@ class CustomPermission(models.Model):
         
         super().save(*args, **kwargs)
     
-    def delete(self, *args, **kwargs):
-        """Prevenir eliminación de permisos del sistema"""
+    def delete(self, using=None, keep_parents=False):
+        """
+        Prevenir eliminación de permisos del sistema.
+        BaseModel.delete() hace soft delete automáticamente.
+        """
+        if self.is_system:
+            raise ValidationError("Los permisos del sistema no pueden ser eliminados")
+        
+        # BaseModel.delete() hace soft delete (state=False, deleted_date=now)
+        # No elimina físicamente, solo marca como inactivo
+        super().delete(using=using, keep_parents=keep_parents)
+    
+    def hard_delete(self):
+        """
+        Eliminar permanentemente incluyendo Permission de Django.
+        Solo usar cuando realmente sea necesario.
+        """
         if self.is_system:
             raise ValidationError("Los permisos del sistema no pueden ser eliminados")
         
@@ -167,7 +192,8 @@ class CustomPermission(models.Model):
         if self.django_permission:
             self.django_permission.delete()
         
-        super().delete(*args, **kwargs)
+        # Hard delete del BaseModel
+        super().hard_delete()
     
     def get_full_permission_string(self):
         """Retorna el string completo del permiso (ej: usuarios.can_manage_users)"""
@@ -175,16 +201,19 @@ class CustomPermission(models.Model):
     
     def get_all_implied_permissions(self):
         """
-        Retorna todos los permisos que este permiso implica (hijos en jerarquía)
-        Útil para implementar la lógica: can_manage incluye can_create, can_edit, can_delete
+        Retorna todos los permisos que este permiso implica (hijos en jerarquía).
+        Útil para implementar la lógica: can_manage incluye can_create, can_edit, can_delete.
+        Solo retorna permisos activos (state=True).
         """
         implied = [self]
-        for child in self.child_permissions.filter(is_active=True):
+        for child in self.child_permissions.filter(is_active=True, state=True):
             implied.extend(child.get_all_implied_permissions())
         return implied
 ```
 
 ### 2. Serializers para la API
+
+**NOTA**: Los serializers usan los campos de BaseModel (created_date, modified_date, state) en lugar de campos personalizados.
 
 ```python
 # usuarios/serializers.py
@@ -194,15 +223,22 @@ from .models import CustomPermission, CustomPermissionCategory
 
 class CustomPermissionCategorySerializer(serializers.ModelSerializer):
     permissions_count = serializers.SerializerMethodField()
+    created_by_username = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomPermissionCategory
         fields = ['id', 'name', 'display_name', 'description', 'icon', 
-                 'order', 'is_active', 'permissions_count', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+                 'order', 'is_active', 'permissions_count', 
+                 'created_date', 'modified_date', 'state', 'created_by_username']
+        read_only_fields = ['created_date', 'modified_date', 'state']
     
     def get_permissions_count(self, obj):
-        return obj.permissions.filter(is_active=True).count()
+        return obj.permissions.filter(is_active=True, state=True).count()
+    
+    def get_created_by_username(self, obj):
+        # BaseModel + HistoricalRecords permite acceder al primer registro histórico
+        first_history = obj.historical.first()
+        return first_history.history_user.username if first_history and first_history.history_user else None
 
 
 class CustomPermissionSerializer(serializers.ModelSerializer):
@@ -211,7 +247,7 @@ class CustomPermissionSerializer(serializers.ModelSerializer):
     full_permission = serializers.CharField(source='get_full_permission_string', read_only=True)
     parent_permission_name = serializers.CharField(source='parent_permission.codename', read_only=True, allow_null=True)
     child_permissions = serializers.SerializerMethodField()
-    created_by_username = serializers.CharField(source='created_by.username', read_only=True, allow_null=True)
+    created_by_username = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomPermission
@@ -222,13 +258,19 @@ class CustomPermissionSerializer(serializers.ModelSerializer):
             'parent_permission', 'parent_permission_name',
             'child_permissions', 'equivalent_permissions',
             'is_active', 'is_system', 'order',
-            'created_at', 'updated_at', 'created_by', 'created_by_username'
+            'created_date', 'modified_date', 'deleted_date', 'state',
+            'created_by_username'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'created_by', 'django_permission']
+        read_only_fields = ['created_date', 'modified_date', 'deleted_date', 'state', 'django_permission']
     
     def get_child_permissions(self, obj):
-        children = obj.child_permissions.filter(is_active=True).values('id', 'codename', 'name')
+        children = obj.child_permissions.filter(is_active=True, state=True).values('id', 'codename', 'name')
         return list(children)
+    
+    def get_created_by_username(self, obj):
+        # Acceder al historial para obtener quién creó el permiso
+        first_history = obj.historical.first()
+        return first_history.history_user.username if first_history and first_history.history_user else None
     
     def validate_codename(self, value):
         """Validar formato del codename"""
