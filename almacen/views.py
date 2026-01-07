@@ -15,11 +15,7 @@ import requests
 from .serializers import *
 from .utils import *
 import logging
-from usuarios.permissions import (
-    CanAccessAlmacen, IsAlmacenAdmin, ReadOnly,
-    CanManageWarehouse, CanViewWarehouse, CanViewWarehouseReports,
-    CanManageStock, CanViewStock
-)
+from usuarios.permissions import HasModulePermission, CanViewWarehouse, CanManageWarehouse, CanViewStock, CanManageStock
 
 logger = logging.getLogger(__name__)
 
@@ -112,24 +108,39 @@ class EmpresaViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return [IsAuthenticated()]
 
+
+
+
+
 class AlmacenViewSet(viewsets.ModelViewSet):
     """
     API endpoint para ver y editar Almacenes.
-    Requiere permiso de gestión de almacén para crear/editar, ver para consultar.
+    Usa el sistema de permisos dinámico.
     """
     queryset = Almacen.objects.all()
     serializer_class = AlmacenSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['empresa']
-    
+
     def get_permissions(self):
         """
-        GET: requiere can_view_warehouse
-        POST/PUT/PATCH/DELETE: requiere can_manage_warehouse
+        Define los permisos dinámicamente según la acción (GET vs POST/PUT/DELETE).
         """
+        #print(f"Usuario: {self.request.user}")
+        #print(f"Permisos del usuario: {self.request.user.get_all_permissions()}")
+        # 2. Instanciamos la clase genérica
+        permission_instance = HasModulePermission()
+
+        # 3. Asignamos el STRING del permiso según la acción
         if self.action in ['list', 'retrieve']:
-            return [IsAuthenticated(), CanViewWarehouse()]
-        return [IsAuthenticated(), CanManageWarehouse()]
+            # Lectura: Solo necesita permiso de ver
+            permission_instance.permission_required = 'almacen.can_view_warehouse'
+        else:
+            # Escritura: Necesita permiso de gestión
+            permission_instance.permission_required = 'almacen.can_manage_warehouse'
+
+        # 4. Retornamos la instancia configurada
+        return [IsAuthenticated(), permission_instance]
 
 class ProductoViewSet(viewsets.ModelViewSet):
     """

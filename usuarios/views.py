@@ -360,7 +360,7 @@ class CustomPermissionCategoryViewSet(viewsets.ModelViewSet):
         """
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated(), CanViewRoles()]
-        return [permissions.IsAuthenticated(), IsAccountsAdmin()]
+        return [permissions.IsAuthenticated(), permissions.IsAdminUser()]
     
     def get_queryset(self):
         """Retorna solo categorías activas ordenadas"""
@@ -390,7 +390,7 @@ class CustomPermissionViewSet(viewsets.ModelViewSet):
         """
         if self.action in ['list', 'retrieve', 'history', 'hierarchy']:
             return [permissions.IsAuthenticated(), CanViewRoles()]
-        return [permissions.IsAuthenticated(), IsAccountsAdmin()]
+        return [permissions.IsAuthenticated(), permissions.IsAdminUser()]
     
     def get_queryset(self):
         """Retorna solo permisos activos con relaciones pre-cargadas"""
