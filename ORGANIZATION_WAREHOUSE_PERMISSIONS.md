@@ -2,9 +2,28 @@
 
 ## 📋 Resumen
 
-Implementación de control de acceso granular a nivel de **Empresa** y **Almacén** para usuarios con roles específicos.
+Implementación de control de acceso granular a nivel de **Almacén** y **Sede** para usuarios con roles específicos (operarios, administradores de almacén, etc.).
 
-**Caso de Uso**: Operarios y administradores de almacén deben tener acceso solo a almacenes específicos basados en su empresa y/o sede.
+**Caso de Uso**: Operarios y administradores de almacén deben tener acceso solo a almacenes específicos basados en asignación directa o por sede.
+
+---
+
+## ⚠️ Aclaración Importante sobre el Campo `empresa`
+
+**El campo `empresa` en `UserProfile` NO debe usarse para control de acceso a almacenes de empleados.**
+
+```python
+class UserProfile(BaseModel):
+    empresa = models.ForeignKey(Empresa, ...)  # ❌ Este campo es SOLO para proveedores
+```
+
+**Propósito del campo `empresa`:**
+- ✅ Identifica la empresa del **proveedor** cuando el usuario tiene rol de proveedor
+- ✅ Permite filtrar documentos y operaciones del proveedor por su empresa
+- ❌ NO se usa para empleados internos
+- ❌ NO se usa para control de acceso a almacenes
+
+**Para empleados internos**: Los almacenes y sedes deben asignarse directamente mediante relaciones many-to-many independientes del campo `empresa`.
 
 ---
 
@@ -16,17 +35,16 @@ Implementación de control de acceso granular a nivel de **Empresa** y **Almacé
 class UserProfile(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     telefono = models.CharField(max_length=20, null=True, blank=True)
-    empresa = models.ForeignKey(Empresa, on_delete=models.SET_NULL, null=True, blank=True)
+    empresa = models.ForeignKey(Empresa, ...)  # Solo para proveedores
 ```
-
-**✅ Ventaja**: Ya tienes la relación `UserProfile -> Empresa`.
 
 ### Extensión Propuesta
 
-Necesitamos agregar dos nuevas relaciones:
+Necesitamos agregar nuevas relaciones **independientes** para control de acceso:
 
-1. **Acceso a Almacenes Específicos** (many-to-many)
-2. **Acceso a Sedes/Direcciones Específicas** (many-to-many)
+1. **Acceso a Almacenes Específicos** (many-to-many) - Para empleados
+2. **Acceso a Sedes/Direcciones Específicas** (many-to-many) - Para empleados
+3. **Flags de control** - Para activar/desactivar restricciones
 
 ---
 
@@ -101,22 +119,23 @@ class UserProfile(BaseModel):
     
     def get_almacenes_accesibles(self):
         """Obtiene los almacenes a los que el usuario tiene acceso"""
+        from almacen.models import Almacen
+        
         if not self.require_warehouse_access:
-            # Sin restricción, devolver todos los almacenes de su empresa
-            if self.empresa:
-                from almacen.models import Almacen
-                return Almacen.objects.filter(empresa=self.empresa)
-            return Almacen.objects.none()
-        return self.almacenes_asignados.all()
+            # Sin restricción, devolver TODOS los almacenes
+            return Almacen.objects.filter(state=True)
+        
+        # Con restricción, devolver solo los asignados
+        return self.almacenes_asignados.filter(state=True)
     
     def get_sedes_accesibles(self):
         """Obtiene las sedes a las que el usuario tiene acceso"""
         if not self.require_sede_access:
-            # Sin restricción, devolver todas las sedes de su empresa
-            if self.empresa:
-                return self.empresa.direcciones.all()
-            return Direccion.objects.none()
-        return self.sedes_asignadas.all()
+            # Sin restricción, devolver TODAS las sedes
+            return Direccion.objects.filter(state=True)
+        
+        # Con restricción, devolver solo las asignadas
+        return self.sedes_asignadas.filter(state=True)
 ```
 
 ### Paso 2: Crear la Migración
@@ -356,11 +375,9 @@ class AlmacenViewSet(viewsets.ModelViewSet):
         
         profile = user.userprofile
         
-        # Si no requiere restricción, ver todos de su empresa
+        # Si no requiere restricción, ver TODOS los almacenes
         if not profile.require_warehouse_access:
-            if profile.empresa:
-                return queryset.filter(empresa=profile.empresa)
-            return queryset.none()
+            return queryset.filter(state=True)
         
         # Filtrar por almacenes asignados
         almacenes_ids = profile.almacenes_asignados.values_list('id', flat=True)
@@ -519,7 +536,6 @@ function MovimientoForm() {
 ```python
 # En Admin de Django
 user_profile = UserProfile.objects.get(user=operario)
-user_profile.empresa = empresa_lima
 user_profile.require_warehouse_access = True
 user_profile.almacenes_asignados.add(almacen_callao, almacen_miraflores)
 user_profile.save()
@@ -536,7 +552,6 @@ user_profile.save()
 **Configuración**:
 ```python
 user_profile = UserProfile.objects.get(user=admin_almacen)
-user_profile.empresa = empresa_lima
 user_profile.require_warehouse_access = True
 user_profile.require_sede_access = True
 user_profile.sedes_asignadas.add(sede_norte)
@@ -553,22 +568,37 @@ user_profile.sedes_asignadas.add(sede_norte)
 **Configuración**:
 ```python
 user_profile = UserProfile.objects.get(user=gerente)
-user_profile.empresa = empresa_lima
 user_profile.require_warehouse_access = False
 user_profile.require_sede_access = False
+# No necesita asignaciones
 ```
 
 **Resultado**:
-- ✅ Acceso a TODOS los almacenes de su empresa
+- ✅ Acceso a TODOS los almacenes del sistema
 - ✅ Sin restricciones
 - ✅ No necesita asignaciones individuales
 
-### Caso 4: SystemAdmin (Acceso Total)
+### Caso 4: Usuario Proveedor (campo empresa)
+
+**Configuración**:
+```python
+user_profile = UserProfile.objects.get(user=proveedor)
+user_profile.empresa = empresa_proveedor_xyz  # Identifica al proveedor
+# El campo empresa NO afecta el acceso a almacenes
+# Los proveedores usan permisos específicos (ProveedorPermissions)
+```
+
+**Resultado**:
+- ✅ Campo `empresa` identifica su empresa como proveedor
+- ✅ Permisos independientes: `can_upload_documents`, `can_view_own_documents`
+- ✅ NO tiene acceso a almacenes (a menos que se le asignen explícitamente)
+
+### Caso 5: SystemAdmin (Acceso Total)
 
 **Resultado**:
 - ✅ Acceso a TODO
 - ✅ Ignora todas las restricciones
-- ✅ Puede ver y gestionar cualquier almacén de cualquier empresa
+- ✅ Puede ver y gestionar cualquier almacén
 
 ---
 
@@ -856,3 +886,68 @@ Para dudas o problemas:
 3. Aplicar en ViewSets principales
 4. Crear tests
 5. Documentar para usuarios finales
+
+---
+
+## ⚠️ RESUMEN IMPORTANTE: Campo `empresa` vs Control de Acceso
+
+### Campo `empresa` en UserProfile
+
+**Propósito ÚNICO:**
+```python
+empresa = models.ForeignKey(Empresa, ...)  # Solo para PROVEEDORES
+```
+
+- ✅ **Uso correcto**: Identificar la empresa del proveedor
+- ✅ **Ejemplo**: Proveedor "Juan Pérez" pertenece a empresa "ABC Logistics"
+- ❌ **NO usar para**: Control de acceso a almacenes de empleados
+- ❌ **NO usar para**: Filtrar almacenes por empresa
+
+### Control de Acceso a Almacenes (Empleados)
+
+**Campos para control de acceso:**
+```python
+almacenes_asignados = models.ManyToManyField('almacen.Almacen')
+require_warehouse_access = models.BooleanField(default=False)
+```
+
+- ✅ **Uso correcto**: Asignar almacenes específicos a empleados
+- ✅ **Ejemplo**: Operario "María López" tiene acceso solo a Almacén Callao y Miraflores
+- ✅ **Independiente**: No depende del campo `empresa`
+- ✅ **Flexible**: Funciona para cualquier tipo de usuario (no solo proveedores)
+
+### Diferencia Clave
+
+| Aspecto | Campo `empresa` | Campo `almacenes_asignados` |
+|---------|----------------|----------------------------|
+| **Propósito** | Identificar proveedor | Controlar acceso a almacenes |
+| **Aplica a** | Solo proveedores | Todos los usuarios (empleados) |
+| **Tipo** | ForeignKey (1 empresa) | ManyToMany (N almacenes) |
+| **Obligatorio** | No | No |
+| **Afecta acceso** | No | Sí (si `require_warehouse_access=True`) |
+
+### Ejemplo Práctico
+
+**Usuario Proveedor:**
+```python
+profile.empresa = empresa_abc_logistics  # Identifica su empresa como proveedor
+profile.require_warehouse_access = False  # No necesita acceso a almacenes
+# Usa permisos: can_upload_documents, can_view_own_documents
+```
+
+**Usuario Empleado (Operario):**
+```python
+profile.empresa = None  # No es proveedor, no tiene empresa
+profile.require_warehouse_access = True  # Necesita control de acceso
+profile.almacenes_asignados.add(almacen1, almacen2)  # Solo estos almacenes
+# Usa permisos: can_manage_warehouse, can_create_movements
+```
+
+**Usuario Empleado (Gerente):**
+```python
+profile.empresa = None  # No es proveedor
+profile.require_warehouse_access = False  # Sin restricciones
+# Acceso a TODOS los almacenes automáticamente
+```
+
+**Conclusión**: El campo `empresa` y el control de acceso a almacenes son conceptos completamente separados e independientes.
