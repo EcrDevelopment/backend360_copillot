@@ -13,6 +13,9 @@ from  localizacion.models import  Departamento, Provincia, Distrito
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User, Group, Permission
 from .validators import InputValidator
+
+from almacen.models import Almacen
+
 from .audit_log import AuditLog, get_client_ip
 
 '''
@@ -231,16 +234,21 @@ class RoleSerializer(serializers.ModelSerializer):  # Role == Group
         fields = ['id', 'name', 'permissions']
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    empresa_id = serializers.PrimaryKeyRelatedField(
-        queryset=Empresa.objects.all(),
-        source="empresa",
-        required=False,
-        allow_null=True,
+    # Definimos explícitamente para que DRF sepa cómo manejar los IDs
+    almacenes_asignados = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Almacen.objects.filter(state=True), required=False
+    )
+    sedes_asignadas = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Direccion.objects.filter(state=True), required=False
     )
 
     class Meta:
         model = UserProfile
-        fields = ["empresa_id", "telefono"]
+        fields = [
+            'telefono', 'empresa',
+            'require_warehouse_access', 'almacenes_asignados',
+            'require_sede_access', 'sedes_asignadas'
+        ]
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, min_length=8)
@@ -250,13 +258,13 @@ class UserSerializer(serializers.ModelSerializer):
     permissions = serializers.PrimaryKeyRelatedField(
         many=True, source="user_permissions", queryset=Permission.objects.all(), required=False
     )
-    userprofile = UserProfileSerializer(required=False)  # <-- aquí va anidado
+    userprofile = UserProfileSerializer(required=False)
 
     class Meta:
         model = User
         fields = [
             "id", "username", "password", "email", "first_name", "last_name",
-            "roles", "permissions", "userprofile","is_active"
+            "roles", "permissions", "userprofile", "is_active"
         ]
         read_only_fields = ["id"]
 
@@ -299,12 +307,23 @@ class UserSerializer(serializers.ModelSerializer):
         profile_data = validated_data.pop("userprofile", {})
         password = validated_data.pop("password")
 
+        # 1. Separar datos M2M del perfil (no se pueden guardar en el create)
+        almacenes = profile_data.pop('almacenes_asignados', [])
+        sedes = profile_data.pop('sedes_asignadas', [])
+
+        # 2. Crear Usuario
         user = User.objects.create_user(password=password, **validated_data)
         user.groups.set(roles)
         user.user_permissions.set(perms)
 
-        # Crear perfil asociado
-        UserProfile.objects.create(user=user, **profile_data)
+        # 3. Crear Perfil (sin M2M)
+        profile = UserProfile.objects.create(user=user, **profile_data)
+
+        # 4. Asignar M2M ahora que el perfil existe
+        if almacenes:
+            profile.almacenes_asignados.set(almacenes)
+        if sedes:
+            profile.sedes_asignadas.set(sedes)
 
         return user
 
@@ -313,7 +332,8 @@ class UserSerializer(serializers.ModelSerializer):
         perms = validated_data.pop("user_permissions", None)
         profile_data = validated_data.pop("userprofile", {})
         password = validated_data.pop("password", None)
-        
+
+        # Actualizar usuario base
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
@@ -326,14 +346,35 @@ class UserSerializer(serializers.ModelSerializer):
         if perms is not None:
             instance.user_permissions.set(perms)
 
-        # Actualizar o crear perfil
+        # Actualizar Perfil
         profile = getattr(instance, "userprofile", None)
-        if profile:
+
+        # Si no existe perfil y mandan datos, crearlo
+        if not profile and profile_data:
+            # Extraer M2M antes de crear
+            almacenes = profile_data.pop('almacenes_asignados', [])
+            sedes = profile_data.pop('sedes_asignadas', [])
+
+            profile = UserProfile.objects.create(user=instance, **profile_data)
+
+            profile.almacenes_asignados.set(almacenes)
+            profile.sedes_asignadas.set(sedes)
+
+        elif profile:
+            # Extraer M2M para actualizar aparte
+            almacenes = profile_data.pop('almacenes_asignados', None)
+            sedes = profile_data.pop('sedes_asignadas', None)
+
+            # Actualizar campos simples
             for attr, value in profile_data.items():
                 setattr(profile, attr, value)
             profile.save()
-        elif profile_data:  # Solo crear si hay datos en profile_data
-            UserProfile.objects.create(user=instance, **profile_data)
+
+            # Actualizar M2M usando .set()
+            if almacenes is not None:
+                profile.almacenes_asignados.set(almacenes)
+            if sedes is not None:
+                profile.sedes_asignadas.set(sedes)
 
         return instance
 
