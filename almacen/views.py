@@ -16,9 +16,9 @@ from .serializers import *
 from .utils import *
 import logging
 from usuarios.permissions import HasModulePermission, CanViewWarehouse, CanManageWarehouse, CanViewStock, CanManageStock
+from usuarios.warehouse_permissions import HasWarehouseAccess, HasSedeAccess
 
 logger = logging.getLogger(__name__)
-
 
 class GremisionCabViewSet(viewsets.ViewSet):
     """
@@ -48,7 +48,6 @@ class GremisionCabViewSet(viewsets.ViewSet):
         data = GremisionCab.objects.using(db_alias).all()
         serializer = GremisionCabSerializer(data, many=True)
         return Response(serializer.data)
-
 
 class GremisionConsultaView(APIView):
     """
@@ -109,9 +108,16 @@ class EmpresaViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-
-
-
+'''
+muy bien quisiera que extendamos ahora esta implementacion de los permisos de almacen a mis vistas y serializer de mi app 
+de almacen, ya aplique los cambios pero quisiera que ademas de eso me explicaras bien como aplicar estos 
+nuevos permisos, toma en cuenta que listar almacenes no deberia de solicitar permisos especiales sin embargo, ver Kardex, 
+movimientos, transferencias si deberian de ser mas restrictivos o en todo caso podriamos cambiar las vistas para 
+operadores o gerentes los operadores necesitaran usualmente solo informacion de su almacen o stock solo de su almacen 
+en cambio los gerentes necesitaran probablemente un stock mas general tal vez por el producto o la 
+empresa(considerando que internamente tengo 3 empresas y estas no tienen nada que ver con la empresa en perfil 
+que como ya te indique solo aplica para proveedores)
+'''
 class AlmacenViewSet(viewsets.ModelViewSet):
     """
     API endpoint para ver y editar Almacenes.
@@ -121,6 +127,31 @@ class AlmacenViewSet(viewsets.ModelViewSet):
     serializer_class = AlmacenSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['empresa']
+
+    def get_queryset(self):
+        """
+        Filtrar queryset basado en almacenes accesibles
+        """
+        queryset = super().get_queryset()
+        user = self.request.user
+
+        # SystemAdmin ve todo
+        if hasattr(user, 'is_system_admin') and user.is_system_admin:
+            return queryset
+
+        # Obtener perfil
+        if not hasattr(user, 'userprofile'):
+            return queryset.none()
+
+        profile = user.userprofile
+
+        # Si no requiere restricción, ver TODOS los almacenes
+        if not profile.require_warehouse_access:
+            return queryset.filter(state=True)
+
+        # Filtrar por almacenes asignados
+        almacenes_ids = profile.almacenes_asignados.values_list('id', flat=True)
+        return queryset.filter(id__in=almacenes_ids)
 
     def get_permissions(self):
         """
@@ -291,7 +322,6 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
             'producto'
         )
 
-
 class TriggerSyncAPIView(APIView):
     """
     Endpoint para iniciar una sincronización MASTER.
@@ -329,7 +359,6 @@ class TriggerSyncAPIView(APIView):
         except Exception as e:
             logger.error(f"Error al encolar la tarea: {e}", exc_info=True)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class TransferenciaViewSet(mixins.ListModelMixin,
                            mixins.RetrieveModelMixin,
@@ -456,7 +485,6 @@ class TransferenciaViewSet(mixins.ListModelMixin,
             logger.error(f"Error al REVERTIR transferencia {pk}: {e}", exc_info=True)
             return Response({"error": f"Error al revertir: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 class CheckSyncStatusAPIView(APIView):
     """
     Endpoint para consultar estado de sincronización.
@@ -539,7 +567,6 @@ class CheckSyncStatusAPIView(APIView):
         #print("[CheckStatus] No se encontraron tareas activas para este usuario.", flush=True)
         return Response({"is_syncing": False}, status=status.HTTP_200_OK)
 
-
 class KardexReportView(APIView):
     """
     Endpoint DETALLADO para obtener el reporte de Kárdex.
@@ -615,12 +642,10 @@ class KardexReportView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-#vistas de estibaje
 class TipoEstibajeViewSet(viewsets.ModelViewSet):
     queryset = TipoEstibaje.objects.filter(state=True)  # Solo activos
     serializer_class = TipoEstibajeSerializer
     # filterset_fields = ['empresa'] # Si usas django-filter
-
 
 class RegistroEstibajeViewSet(viewsets.ModelViewSet):
     queryset = RegistroEstibaje.objects.all().order_by('-fecha_registro')

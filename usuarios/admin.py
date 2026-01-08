@@ -2,7 +2,8 @@ from django.contrib import admin
 from .models import (
     CustomPermissionCategory,
     CustomPermission,
-    PermissionChangeAudit
+    PermissionChangeAudit,
+    UserProfile
 )
 
 
@@ -48,6 +49,46 @@ class PermissionChangeAuditAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         # Los logs de auditoría solo se crean automáticamente
         return False
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ['user', 'empresa', 'telefono', 'require_warehouse_access', 'require_sede_access']
+    list_filter = ['require_warehouse_access', 'require_sede_access', 'empresa']
+    search_fields = ['user__username', 'user__email', 'telefono']
+
+    # 🆕 FIELDSETS ORGANIZADOS
+    fieldsets = (
+        ('Información Básica', {
+            'fields': ('user', 'telefono', 'empresa')
+        }),
+        ('Control de Acceso por Almacén', {
+            'fields': ('require_warehouse_access', 'almacenes_asignados'),
+            'classes': ('collapse',),
+            'description': 'Configura acceso específico a almacenes'
+        }),
+        ('Control de Acceso por Sede', {
+            'fields': ('require_sede_access', 'sedes_asignadas'),
+            'classes': ('collapse',),
+            'description': 'Configura acceso específico a sedes'
+        }),
+    )
+
+    # 🆕 FILTROS M2M CON AUTOCOMPLETE
+    filter_horizontal = ['almacenes_asignados', 'sedes_asignadas']
+
+    # 🆕 MÉTODO PERSONALIZADO PARA MOSTRAR ALMACENES
+    def get_almacenes_display(self, obj):
+        if not obj.require_warehouse_access:
+            return "✅ Todos (sin restricción)"
+        almacenes = obj.almacenes_asignados.all()
+        if almacenes.exists():
+            return ", ".join([a.nombre for a in almacenes[:3]]) + (
+                f" (+{almacenes.count() - 3} más)" if almacenes.count() > 3 else ""
+            )
+        return "❌ Ninguno asignado"
+
+    get_almacenes_display.short_description = 'Almacenes'
 
 
 # ========================================

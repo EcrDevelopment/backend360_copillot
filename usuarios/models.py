@@ -40,11 +40,74 @@ class UserProfile(BaseModel):
     telefono = models.CharField(max_length=20, null=True, blank=True)
     empresa = models.ForeignKey(Empresa, related_name='empresa', on_delete=models.SET_NULL, null=True, blank=True)
 
+    # 🆕 NUEVOS CAMPOS
+    almacenes_asignados = models.ManyToManyField(
+        'almacen.Almacen',
+        related_name='usuarios_asignados',
+        blank=True,
+        verbose_name='Almacenes Asignados',
+        help_text='Almacenes a los que el usuario tiene acceso'
+    )
+
+    sedes_asignadas = models.ManyToManyField(
+        Direccion,
+        related_name='usuarios_asignados',
+        blank=True,
+        verbose_name='Sedes Asignadas',
+        help_text='Sedes/direcciones a las que el usuario tiene acceso'
+    )
+
+    # 🆕 CONTROL DE RESTRICCIÓN
+    require_warehouse_access = models.BooleanField(
+        default=False,
+        verbose_name='Requiere Acceso a Almacén',
+        help_text='Si True, el usuario solo puede acceder a almacenes asignados explícitamente'
+    )
+
+    require_sede_access = models.BooleanField(
+        default=False,
+        verbose_name='Requiere Acceso a Sede',
+        help_text='Si True, el usuario solo puede acceder a sedes asignadas explícitamente'
+    )
+
     class Meta:
         db_table = 'perfil'
 
     def __str__(self):
         return f"Perfil de {self.user.username}"
+
+    # 🆕 MÉTODOS DE UTILIDAD
+    def tiene_acceso_almacen(self, almacen):
+        """Verifica si el usuario tiene acceso a un almacén específico"""
+        if not self.require_warehouse_access:
+            return True  # Sin restricción, acceso total
+        return self.almacenes_asignados.filter(id=almacen.id).exists()
+
+    def tiene_acceso_sede(self, sede):
+        """Verifica si el usuario tiene acceso a una sede específica"""
+        if not self.require_sede_access:
+            return True  # Sin restricción, acceso total
+        return self.sedes_asignadas.filter(id=sede.id).exists()
+
+    def get_almacenes_accesibles(self):
+        """Obtiene los almacenes a los que el usuario tiene acceso"""
+        from almacen.models import Almacen
+
+        if not self.require_warehouse_access:
+            # Sin restricción, devolver TODOS los almacenes
+            return Almacen.objects.filter(state=True)
+
+        # Con restricción, devolver solo los asignados
+        return self.almacenes_asignados.filter(state=True)
+
+    def get_sedes_accesibles(self):
+        """Obtiene las sedes a las que el usuario tiene acceso"""
+        if not self.require_sede_access:
+            # Sin restricción, devolver TODAS las sedes
+            return Direccion.objects.filter(state=True)
+
+        # Con restricción, devolver solo las asignadas
+        return self.sedes_asignadas.filter(state=True)
 
 
 class PasswordResetToken(models.Model):
