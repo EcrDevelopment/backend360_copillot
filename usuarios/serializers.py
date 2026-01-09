@@ -379,14 +379,39 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 class DireccionSerializer(serializers.ModelSerializer):
+    # Mantenemos esto para que al CREAR una dirección se use el ID
     empresa = serializers.PrimaryKeyRelatedField(queryset=Empresa.objects.all())
-    departamento = DepartamentoSerializer()
-    provincia = ProvinciaSerializer()
-    distrito = DistritoSerializer()
+
+    # Serializers anidados (solo lectura) para ver el detalle
+    departamento = DepartamentoSerializer(read_only=True)
+    provincia = ProvinciaSerializer(read_only=True)
+    distrito = DistritoSerializer(read_only=True)
+
+    # 🆕 CAMPOS EXTRA PARA EL FRONTEND (SOLO LECTURA)
+    # Esto permite mostrar "Empresa Semilla" en lugar de "5"
+    empresa_nombre = serializers.CharField(source='empresa.razon_social', read_only=True)
+
+    # Este campo crea el string completo para el Select del UserManager
+    full_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Direccion
         fields = '__all__'
+
+    def get_full_name(self, obj):
+        """
+        Genera un nombre legible: 'Av. Perú 123 (Empresa X) - Lima, Miraflores'
+        """
+        # Obtenemos los nombres de forma segura (por si son nulos)
+        empresa = obj.empresa.razon_social if obj.empresa else 'Sin Empresa'
+        distrito = obj.distrito.name if obj.distrito else ''
+        provincia = obj.provincia.name if obj.provincia else ''
+
+        # Construimos la ubicación geográfica
+        ubicacion = f"{provincia}, {distrito}".strip(', ')
+
+        # Retornamos el formato final
+        return f"{obj.direccion} ({empresa}) - {ubicacion}"
 
 class EmpresaSerializer(serializers.ModelSerializer):
     direcciones = DireccionSerializer(many=True, read_only=True)

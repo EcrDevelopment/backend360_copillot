@@ -137,26 +137,38 @@ class AlmacenViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Filtrar queryset basado en almacenes accesibles
+        Filtrar queryset basado en almacenes accesibles.
+        Permite bypass con ?catalog=true para llenar selects.
         """
         queryset = super().get_queryset()
         user = self.request.user
 
-        # SystemAdmin ve todo
+        # 1. SystemAdmin siempre ve todo
         if hasattr(user, 'is_system_admin') and user.is_system_admin:
             return queryset
 
-        # Obtener perfil
+        # 2. EXCEPCIÓN PARA SELECTS/DROPDOWNS
+        # Si el frontend pide ?catalog=true, devolvemos todos los almacenes activos
+        # (Idealmente esto solo debería devolver ID y Nombre, no datos sensibles de stock)
+        is_catalog_mode = (
+                self.request.query_params.get('catalog') == 'true'
+                and self.request.method == 'GET'  # <--- CRÍTICO
+        )
+
+        if is_catalog_mode:
+            return queryset.filter(state=True)
+
+        # 3. Validar Perfil
         if not hasattr(user, 'userprofile'):
             return queryset.none()
 
         profile = user.userprofile
 
-        # Si no requiere restricción, ver TODOS los almacenes
+        # 4. Si el perfil NO requiere restricción, ve todo
         if not profile.require_warehouse_access:
             return queryset.filter(state=True)
 
-        # Filtrar por almacenes asignados
+        # 5. RESTRICTIVO (Por defecto): Solo almacenes asignados
         almacenes_ids = profile.almacenes_asignados.values_list('id', flat=True)
         return queryset.filter(id__in=almacenes_ids)
 
@@ -175,6 +187,12 @@ class AlmacenViewSet(viewsets.ModelViewSet):
             permission_instance = HasModulePermission()
             permission_instance.permission_required = 'almacen.can_manage_warehouse'
             return [IsAuthenticated(), permission_instance]
+
+    def get_serializer_class(self):
+        # Si piden catálogo, usamos un serializer "ligero"
+        if self.request.query_params.get('catalog') == 'true':
+            return AlmacenSelectSerializer
+        return AlmacenSerializer
 
 class ProductoViewSet(viewsets.ModelViewSet):
     """
