@@ -12,6 +12,7 @@ __pycache__
 Thumbs.db
 semillaenv
 /media/
+env/
 /semilla360/settings.py
 
 # Logs y auditoría
@@ -26,3 +27,4 @@ general.log
 *.temp
 /tmp/
 *.py.bak
+logs/

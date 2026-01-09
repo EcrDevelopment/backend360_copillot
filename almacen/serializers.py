@@ -29,9 +29,28 @@ class EmpresaSerializer(serializers.ModelSerializer):
         fields = '__all__'  # Incluye todos los campos de BaseModel
 
 class AlmacenSerializer(serializers.ModelSerializer):
+    empresa = serializers.PrimaryKeyRelatedField(queryset=Empresa.objects.all())
+    empresa_nombre = serializers.CharField(source='empresa.razon_social', read_only=True)
+    almacen_nombre = serializers.SerializerMethodField()
     class Meta:
         model = Almacen
         fields = '__all__'
+
+    def get_almacen_nombre(self, obj):
+        return f"{obj.codigo} - {obj.descripcion} - {obj.empresa.razon_social}"
+
+
+class AlmacenSelectSerializer(serializers.ModelSerializer):
+    # Solo lo mínimo para el Dropdown
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Almacen
+        fields = ['id', 'codigo', 'descripcion', 'full_name']
+
+    def get_full_name(self, obj):
+        return f"{obj.codigo} - {obj.descripcion}"
+
 
 
 

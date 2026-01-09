@@ -19,7 +19,11 @@ from django.contrib.auth.models import User, Group, Permission
 from .serializers import UserSerializer, RoleSerializer, PermissionSerializer, EmpresaSerializer,DireccionSerializer
 from localizacion.serializers import  DepartamentoSerializer,ProvinciaSerializer,DistritoSerializer
 from rest_framework.permissions import BasePermission
-from .permissions import IsAccountsAdmin, CanManageUsers
+from .permissions import (
+    IsAccountsAdmin, CanManageUsers,
+    CanManageUsersModule, CanViewUsersModule,
+    CanManageRoles, CanViewRoles
+)
 
 def get_csrf_token(request):
     csrf_token = get_token(request)
@@ -139,20 +143,48 @@ class CustomTokenRefreshView(TokenRefreshView):
 class PermissionViewSet(viewsets.ModelViewSet):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
         """
-        Allows GET for authenticated users (needed for frontend to display options).
-        Requires CanManageUsers for create/update/delete operations.
+        GET: requiere can_view_roles
+        POST/PUT/PATCH/DELETE: requiere can_manage_roles
         """
         if self.action in ['list', 'retrieve']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), CanManageUsers()]
+            return [permissions.IsAuthenticated(), CanViewRoles()]
+        return [permissions.IsAuthenticated(), CanManageRoles()]
     
     def get_queryset(self):
-        """Filter permissions to show only relevant ones"""
-        return Permission.objects.all().select_related('content_type')
+        """
+        Filter permissions to show only functional/modular permissions.
+        Excludes default Django table-based permissions (add_, change_, delete_, view_).
+        Only returns custom permissions defined in our Permission Meta models.
+        
+        Functional permission models are configured in settings.FUNCTIONAL_PERMISSION_MODELS
+        """
+        from django.conf import settings
+        from django.apps import apps
+        
+        # Get configured functional permission models from settings
+        functional_model_names = getattr(settings, 'FUNCTIONAL_PERMISSION_MODELS', [])
+        
+        # Extract model names (lowercase) from full app.Model paths
+        model_names = []
+        for full_name in functional_model_names:
+            try:
+                app_label, model_name = full_name.split('.')
+                # Get the actual model to ensure it exists
+                model = apps.get_model(app_label, model_name)
+                model_names.append(model._meta.model_name.lower())
+            except (ValueError, LookupError):
+                # Skip invalid or non-existent models
+                continue
+        
+        # Filter permissions to only include those from our functional permission models
+        queryset = Permission.objects.filter(
+            content_type__model__in=model_names
+        ).select_related('content_type')
+        
+        return queryset
     
     @property
     def paginator(self):
@@ -169,16 +201,15 @@ class PermissionViewSet(viewsets.ModelViewSet):
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
         """
-        Allows GET for authenticated users (needed for frontend to display user roles).
-        Requires CanManageUsers for create/update/delete operations.
+        GET: requiere can_view_roles
+        POST/PUT/PATCH/DELETE: requiere can_manage_roles
         """
         if self.action in ['list', 'retrieve']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), CanManageUsers()]
+            return [permissions.IsAuthenticated(), CanViewRoles()]
+        return [permissions.IsAuthenticated(), CanManageRoles()]
     
     def get_queryset(self):
         """Filter roles based on user permissions"""
@@ -199,16 +230,15 @@ class RoleViewSet(viewsets.ModelViewSet):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.select_related("userprofile").all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
         """
-        Allows GET for authenticated users (users can view their own profile and admins can view all).
-        Requires CanManageUsers for create/update/delete operations.
+        GET: requiere can_view_users
+        POST/PUT/PATCH/DELETE: requiere can_manage_users
         """
         if self.action in ['list', 'retrieve']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), CanManageUsers()]
+            return [permissions.IsAuthenticated(), CanViewUsersModule()]
+        return [permissions.IsAuthenticated(), CanManageUsersModule()]
     
     def get_queryset(self):
         """Filter users based on permissions"""
@@ -297,3 +327,353 @@ class DireccionesPorEmpresaView(APIView):
         direcciones = Direccion.objects.filter(empresa_id=empresa_id)
         serializer = DireccionSerializer(direcciones, many=True)
         return Response(serializer.data)
+
+
+# ========================================
+# DYNAMIC PERMISSION SYSTEM VIEWSETS
+# ========================================
+
+from .models import CustomPermissionCategory, CustomPermission, PermissionChangeAudit
+from .serializers import (
+    CustomPermissionCategorySerializer,
+    CustomPermissionSerializer,
+    PermissionChangeAuditSerializer,
+    PermissionAssignmentSerializer
+)
+from rest_framework.decorators import action
+from datetime import timedelta
+from django.utils import timezone
+
+
+class CustomPermissionCategoryViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar categorías de permisos dinámicos.
+    Solo SystemAdmin puede crear/editar/eliminar categorías.
+    """
+    queryset = CustomPermissionCategory.objects.filter(state=True)
+    serializer_class = CustomPermissionCategorySerializer
+    
+    def get_permissions(self):
+        """
+        GET: requiere can_view_roles
+        POST/PUT/PATCH/DELETE: requiere SystemAdmin
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated(), CanViewRoles()]
+        return [permissions.IsAuthenticated(), permissions.IsAdminUser()]
+    
+    def get_queryset(self):
+        """Retorna solo categorías activas ordenadas"""
+        return CustomPermissionCategory.objects.filter(state=True).order_by('order', 'display_name')
+    
+    @action(detail=True, methods=['get'])
+    def permissions(self, request, pk=None):
+        """Obtiene todos los permisos de una categoría"""
+        category = self.get_object()
+        permissions_qs = category.permissions.filter(state=True)
+        serializer = CustomPermissionSerializer(permissions_qs, many=True)
+        return Response(serializer.data)
+
+
+class CustomPermissionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar permisos dinámicos.
+    Solo SystemAdmin puede crear/editar/eliminar permisos.
+    """
+    queryset = CustomPermission.objects.filter(state=True)
+    serializer_class = CustomPermissionSerializer
+    
+    def get_permissions(self):
+        """
+        GET: requiere can_view_roles
+        POST/PUT/PATCH/DELETE: requiere SystemAdmin
+        """
+        if self.action in ['list', 'retrieve', 'history', 'hierarchy']:
+            return [permissions.IsAuthenticated(), CanViewRoles()]
+        return [permissions.IsAuthenticated(), permissions.IsAdminUser()]
+    
+    def get_queryset(self):
+        """Retorna solo permisos activos con relaciones pre-cargadas"""
+        return CustomPermission.objects.filter(
+            state=True
+        ).select_related(
+            'category', 'parent_permission', 'django_permission'
+        ).prefetch_related('child_permissions')
+    
+    def perform_destroy(self, instance):
+        """
+        Soft delete del permiso y registra en auditoría.
+        Los permisos del sistema no pueden ser eliminados.
+        """
+        if instance.is_system:
+            return Response(
+                {'error': 'Los permisos del sistema no pueden ser eliminados'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Registrar auditoría antes del soft delete
+        from .audit_log import get_client_ip
+        PermissionChangeAudit.objects.create(
+            permission=instance,
+            action='deleted',
+            performed_by=self.request.user,
+            ip_address=get_client_ip(self.request),
+            user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:500],
+            reason="Permiso eliminado via API"
+        )
+        
+        # Soft delete
+        instance.state = False
+        instance.save()
+    
+    @action(detail=True, methods=['get'])
+    def history(self, request, pk=None):
+        """Obtiene el historial completo de cambios del permiso"""
+        permission = self.get_object()
+        
+        # Obtener historial de django-simple-history
+        historical_records = permission.history.all()
+        
+        # Obtener auditoría específica
+        audit_logs = permission.audit_logs.all()
+        
+        return Response({
+            'permission': CustomPermissionSerializer(permission).data,
+            'historical_records': [
+                {
+                    'history_id': h.history_id,
+                    'history_date': h.history_date,
+                    'history_type': h.get_history_type_display(),
+                    'history_user': h.history_user.username if h.history_user else None,
+                    'name': h.name,
+                    'codename': h.codename,
+                    'permission_type': h.permission_type,
+                    'action_type': h.action_type,
+                }
+                for h in historical_records
+            ],
+            'audit_logs': PermissionChangeAuditSerializer(audit_logs, many=True).data
+        })
+    
+    @action(detail=True, methods=['get'])
+    def hierarchy(self, request, pk=None):
+        """Obtiene la jerarquía completa del permiso (padres e hijos)"""
+        permission = self.get_object()
+        
+        # Obtener todos los ancestros (padres)
+        ancestors = []
+        current = permission.parent_permission
+        while current:
+            ancestors.append({
+                'id': current.id,
+                'name': current.name,
+                'codename': current.codename,
+                'permission_type': current.permission_type
+            })
+            current = current.parent_permission
+        ancestors.reverse()  # Para mostrar desde la raíz
+        
+        # Obtener todos los descendientes (hijos)
+        def get_children(perm):
+            children = []
+            for child in perm.child_permissions.filter(state=True):
+                children.append({
+                    'id': child.id,
+                    'name': child.name,
+                    'codename': child.codename,
+                    'permission_type': child.permission_type,
+                    'children': get_children(child)
+                })
+            return children
+        
+        descendants = get_children(permission)
+        
+        return Response({
+            'permission': CustomPermissionSerializer(permission).data,
+            'ancestors': ancestors,
+            'descendants': descendants
+        })
+    
+    @action(detail=False, methods=['post'])
+    def assign(self, request):
+        """
+        Asigna o revoca un permiso a un usuario o grupo.
+        Solo SystemAdmin puede ejecutar esta acción.
+        """
+        # Validar que el usuario sea SystemAdmin
+        if not request.user.groups.filter(name='SystemAdmin').exists():
+            return Response(
+                {'error': 'Solo SystemAdmin puede asignar/revocar permisos'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = PermissionAssignmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        permission = serializer.validated_data['permission']
+        action_type = serializer.validated_data['action']
+        reason = serializer.validated_data.get('reason', '')
+        
+        target_user = serializer.validated_data.get('user')
+        target_group = serializer.validated_data.get('group')
+        
+        # Obtener el Permission nativo de Django
+        django_perm = permission.django_permission
+        if not django_perm:
+            return Response(
+                {'error': 'El permiso no tiene un Permission de Django asociado'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Asignar o revocar
+        if action_type == 'assign':
+            if target_user:
+                target_user.user_permissions.add(django_perm)
+                message = f"Permiso asignado al usuario {target_user.username}"
+            else:
+                target_group.permissions.add(django_perm)
+                message = f"Permiso asignado al grupo {target_group.name}"
+            audit_action = 'assigned'
+        else:  # revoke
+            if target_user:
+                target_user.user_permissions.remove(django_perm)
+                message = f"Permiso revocado del usuario {target_user.username}"
+            else:
+                target_group.permissions.remove(django_perm)
+                message = f"Permiso revocado del grupo {target_group.name}"
+            audit_action = 'revoked'
+        
+        # Registrar auditoría
+        from .audit_log import get_client_ip
+        PermissionChangeAudit.objects.create(
+            permission=permission,
+            action=audit_action,
+            performed_by=request.user,
+            target_user=target_user,
+            target_group=target_group,
+            reason=reason,
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
+        )
+        
+        return Response({
+            'message': message,
+            'permission': CustomPermissionSerializer(permission).data
+        })
+    
+    @action(detail=False, methods=['post'])
+    def bulk_create(self, request):
+        """
+        Crea múltiples permisos en una sola operación.
+        Solo SystemAdmin puede ejecutar esta acción.
+        Útil para crear set completos de permisos para un nuevo módulo.
+        """
+        # Validar que el usuario sea SystemAdmin
+        if not request.user.groups.filter(name='SystemAdmin').exists():
+            return Response(
+                {'error': 'Solo SystemAdmin puede crear permisos en lote'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        permissions_data = request.data.get('permissions', [])
+        if not permissions_data:
+            return Response(
+                {'error': 'Debe proporcionar una lista de permisos'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        created_permissions = []
+        errors = []
+        
+        for perm_data in permissions_data:
+            serializer = CustomPermissionSerializer(
+                data=perm_data,
+                context={'request': request}
+            )
+            if serializer.is_valid():
+                permission = serializer.save()
+                created_permissions.append(permission)
+            else:
+                errors.append({
+                    'data': perm_data,
+                    'errors': serializer.errors
+                })
+        
+        return Response({
+            'created': len(created_permissions),
+            'failed': len(errors),
+            'permissions': CustomPermissionSerializer(created_permissions, many=True).data,
+            'errors': errors
+        })
+
+
+class PermissionChangeAuditViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet de solo lectura para consultar auditoría de permisos.
+    Solo SystemAdmin puede acceder.
+    """
+    queryset = PermissionChangeAudit.objects.all()
+    serializer_class = PermissionChangeAuditSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAccountsAdmin]
+    
+    def get_queryset(self):
+        """Retorna logs de auditoría con relaciones pre-cargadas"""
+        queryset = PermissionChangeAudit.objects.select_related(
+            'permission', 'permission__category',
+            'performed_by', 'target_user', 'target_group'
+        ).order_by('-created_date')
+        
+        # Filtros opcionales
+        permission_id = self.request.query_params.get('permission_id')
+        if permission_id:
+            queryset = queryset.filter(permission_id=permission_id)
+        
+        action = self.request.query_params.get('action')
+        if action:
+            queryset = queryset.filter(action=action)
+        
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            queryset = queryset.filter(performed_by_id=user_id)
+        
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def recent(self, request):
+        """Obtiene los cambios recientes (últimas 24 horas)"""
+        since = timezone.now() - timedelta(hours=24)
+        recent_logs = self.get_queryset().filter(created_date__gte=since)
+        serializer = self.get_serializer(recent_logs, many=True)
+        return Response({
+            'period': '24 hours',
+            'count': recent_logs.count(),
+            'logs': serializer.data
+        })
+    
+    @action(detail=False, methods=['get'])
+    def by_user(self, request):
+        """Obtiene todos los cambios realizados por un usuario específico"""
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response(
+                {'error': 'Debe proporcionar user_id'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logs = self.get_queryset().filter(performed_by_id=user_id)
+        serializer = self.get_serializer(logs, many=True)
+        return Response({
+            'user_id': user_id,
+            'count': logs.count(),
+            'logs': serializer.data
+        })
+    
+    @property
+    def paginator(self):
+        """
+        Conditionally disable pagination based on query parameters.
+        """
+        if self.request.query_params.get('pagination') == 'off' or \
+           self.request.query_params.get('all') == 'true':
+            return None
+        return super().paginator
