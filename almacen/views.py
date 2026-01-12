@@ -15,17 +15,18 @@ import requests
 from .serializers import *
 from .utils import *
 import logging
-from usuarios.permissions import CanAccessAlmacen, IsAlmacenAdmin, ReadOnly
+from django.utils import timezone
+from usuarios.permissions import HasModulePermission, CanViewWarehouse, CanManageWarehouse, CanViewStock, CanManageStock
+from usuarios.warehouse_permissions import HasWarehouseAccess, HasSedeAccess
 
 logger = logging.getLogger(__name__)
-
 
 class GremisionCabViewSet(viewsets.ViewSet):
     """
     API endpoint para consultar guías de remisión.
-    Requiere autenticación y acceso al módulo de almacén.
+    Requiere permiso para ver información de almacén.
     """
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
+    permission_classes = [IsAuthenticated, CanViewWarehouse]
 
     def list(self, request):
         empresa = request.query_params.get("empresa")
@@ -49,13 +50,12 @@ class GremisionCabViewSet(viewsets.ViewSet):
         serializer = GremisionCabSerializer(data, many=True)
         return Response(serializer.data)
 
-
 class GremisionConsultaView(APIView):
     """
     API endpoint para consultar detalles de guías de remisión.
-    Requiere autenticación y acceso al módulo de almacén.
+    Requiere permiso para ver información de almacén.
     """
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
+    permission_classes = [IsAuthenticated, CanViewWarehouse]
 
     def get(self, request):
         empresa = request.query_params.get("empresa")
@@ -108,39 +108,125 @@ class EmpresaViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return [IsAuthenticated()]
 
+
+'''
+muy bien quisiera que extendamos ahora esta implementacion de los permisos de almacen a mis vistas y serializer de mi app 
+de almacen, ya aplique los cambios pero quisiera que ademas de eso me explicaras bien como aplicar estos 
+nuevos permisos, toma en cuenta que listar almacenes no deberia de solicitar permisos especiales sin embargo, ver Kardex, 
+movimientos, transferencias si deberian de ser mas restrictivos o en todo caso podriamos cambiar las vistas para 
+operadores o gerentes los operadores necesitaran usualmente solo informacion de su almacen o stock solo de su almacen 
+en cambio los gerentes necesitaran probablemente un stock mas general tal vez por el producto o la 
+empresa(considerando que internamente tengo 3 empresas y estas no tienen nada que ver con la empresa en perfil 
+que como ya te indique solo aplica para proveedores)
+'''
 class AlmacenViewSet(viewsets.ModelViewSet):
     """
     API endpoint para ver y editar Almacenes.
-    Requiere acceso al módulo de almacén.
+    Usa el sistema de permisos dinámico.
+    
+    LECTURA (list/retrieve): Solo requiere autenticación (IsAuthenticated).
+    ESCRITURA (create/update/delete): Requiere can_manage_warehouse.
+    
+    Los operadores solo verán sus almacenes asignados.
+    Los gerentes verán todos los almacenes.
     """
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
     queryset = Almacen.objects.all()
     serializer_class = AlmacenSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['empresa']
 
+    def get_queryset(self):
+        """
+        Filtrar queryset basado en almacenes accesibles.
+        Permite bypass con ?catalog=true para llenar selects.
+        """
+        queryset = super().get_queryset()
+        user = self.request.user
+
+        # 1. SystemAdmin siempre ve todo
+        if hasattr(user, 'is_system_admin') and user.is_system_admin:
+            return queryset
+
+        # 2. EXCEPCIÓN PARA SELECTS/DROPDOWNS
+        # Si el frontend pide ?catalog=true, devolvemos todos los almacenes activos
+        # (Idealmente esto solo debería devolver ID y Nombre, no datos sensibles de stock)
+        is_catalog_mode = (
+                self.request.query_params.get('catalog') == 'true'
+                and self.request.method == 'GET'  # <--- CRÍTICO
+        )
+
+        if is_catalog_mode:
+            return queryset.filter(state=True)
+
+        # 3. Validar Perfil
+        if not hasattr(user, 'userprofile'):
+            return queryset.none()
+
+        profile = user.userprofile
+
+        # 4. Si el perfil NO requiere restricción, ve todo
+        if not profile.require_warehouse_access:
+            return queryset.filter(state=True)
+
+        # 5. RESTRICTIVO (Por defecto): Solo almacenes asignados
+        almacenes_ids = profile.almacenes_asignados.values_list('id', flat=True)
+        return queryset.filter(id__in=almacenes_ids)
+
+    def get_permissions(self):
+        """
+        Define los permisos dinámicamente según la acción.
+        
+        GET (list/retrieve): Solo requiere autenticación.
+        POST/PUT/PATCH/DELETE: Requiere can_manage_warehouse.
+        """
+        if self.action in ['list', 'retrieve']:
+            # Lectura: Solo autenticación, sin permisos especiales
+            return [IsAuthenticated()]
+        else:
+            # Escritura: Necesita permiso de gestión
+            permission_instance = HasModulePermission()
+            permission_instance.permission_required = 'almacen.can_manage_warehouse'
+            return [IsAuthenticated(), permission_instance]
+
+    def get_serializer_class(self):
+        # Si piden catálogo, usamos un serializer "ligero"
+        if self.request.query_params.get('catalog') == 'true':
+            return AlmacenSelectSerializer
+        return AlmacenSerializer
+
 class ProductoViewSet(viewsets.ModelViewSet):
     """
     API endpoint para ver y editar Productos.
-    Requiere acceso al módulo de almacén.
+    Requiere permiso de gestión de almacén para crear/editar, ver para consultar.
     """
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
     queryset = Producto.objects.all()
     serializer_class = ProductoSerializer
 
     filter_backends = [DjangoFilterBackend]
     filterset_class = ProductoFilter
+    
+    def get_permissions(self):
+        """
+        GET: requiere can_view_warehouse
+        POST/PUT/PATCH/DELETE: requiere can_manage_warehouse
+        """
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated(), CanViewWarehouse()]
+        return [IsAuthenticated(), CanManageWarehouse()]
 
 class MovimientoAlmacenViewSet(viewsets.ReadOnlyModelViewSet): # Solo lectura
     """
     API endpoint para ver movimientos de almacén sincronizados.
     Permite filtros por empresa, almacen, producto, fechas, tipo, etc.
-    Requiere acceso al módulo de almacén.
+    Requiere permiso para ver información de almacén.
     Ej: /api/almacen/movimientos/?empresa=1&almacen=2&fecha_documento_desde=2025-10-01
+    
+    Los operadores solo verán movimientos de sus almacenes asignados.
+    Los gerentes verán todos los movimientos.
     """
 
     serializer_class = MovimientoAlmacenSerializer
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
+    permission_classes = [IsAuthenticated, CanViewWarehouse]
     filter_backends = [DjangoFilterBackend, OrderingFilter] # Activa filtros y ordenación
     filterset_class = MovimientoAlmacenFilter # Usa la clase de filtro que definimos
     ordering_fields = [
@@ -156,14 +242,34 @@ class MovimientoAlmacenViewSet(viewsets.ReadOnlyModelViewSet): # Solo lectura
 
     def get_queryset(self):
         """
-        Queryset base optimizado. Usamos select_related para las
-        claves foráneas directas (relaciones 1-a-1).
+        Queryset base optimizado con filtrado por almacenes asignados.
+        Operadores solo ven movimientos de sus almacenes.
+        Gerentes ven todos los movimientos.
         """
-        return MovimientoAlmacen.objects.filter(state=True).select_related(
+        user = self.request.user
+        queryset = MovimientoAlmacen.objects.filter(state=True).select_related(
             'empresa',
             'almacen',
             'producto'
         )
+        
+        # SystemAdmin ve todo
+        if hasattr(user, 'is_system_admin') and user.is_system_admin:
+            return queryset
+        
+        # Verificar perfil
+        if not hasattr(user, 'userprofile'):
+            return queryset.none()
+        
+        profile = user.userprofile
+        
+        # Si no requiere restricción, ver TODO
+        if not profile.require_warehouse_access:
+            return queryset
+        
+        # Filtrar por almacenes asignados
+        almacenes_ids = profile.almacenes_asignados.values_list('id', flat=True)
+        return queryset.filter(almacen_id__in=almacenes_ids)
 
     #  MÉTODO 'list' SOBRESCRITO PARA OPTIMIZACIÓN N+1
     def list(self, request, *args, **kwargs):
@@ -220,11 +326,11 @@ class MovimientoAlmacenNotaViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint para ver las notas/glosas asociadas a movimientos.
     Permite filtrar por id_erp_cab.
-    Requiere acceso al módulo de almacén.
+    Requiere permiso para ver información de almacén.
     Ej: /api/almacen/movimiento-notas/?id_erp_cab=AD-NI-0000001
     """
     serializer_class = MovimientoAlmacenNotaSerializer
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
+    permission_classes = [IsAuthenticated, CanViewWarehouse]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     # Filtros simples para notas
     filterset_fields = ['empresa', 'id_erp_cab', 'id_erp_det']
@@ -236,10 +342,13 @@ class MovimientoAlmacenNotaViewSet(viewsets.ReadOnlyModelViewSet):
 class StockViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint para ver el Stock actual (calculado).
-    Es de solo lectura. Requiere acceso al módulo de almacén.
+    Es de solo lectura. Requiere permiso para ver stock.
+    
+    Los operadores solo verán stock de sus almacenes asignados.
+    Los gerentes verán todo el stock (pueden filtrar por empresa con ?empresa=1).
     """
     serializer_class = StockSerializer
-    permission_classes = [IsAuthenticated, CanAccessAlmacen]
+    permission_classes = [IsAuthenticated, CanViewStock]
 
     # Conectar filtros y ordenación
     filter_backends = [DjangoFilterBackend, OrderingFilter]
@@ -249,17 +358,34 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         """
-        Sobrescribimos para optimizar.
-        Usamos select_related para evitar N+1 queries al obtener
-        los nombres de empresa, almacén y producto.
+        Sobrescribimos para optimizar y filtrar por almacenes asignados.
+        Operadores solo ven stock de sus almacenes.
+        Gerentes ven todo el stock.
         """
-        # No filtramos por state=True porque el modelo Stock no hereda de BaseModel
-        return Stock.objects.all().select_related(
+        user = self.request.user
+        queryset = Stock.objects.all().select_related(
             'empresa',
             'almacen',
             'producto'
         )
-
+        
+        # SystemAdmin ve todo
+        if hasattr(user, 'is_system_admin') and user.is_system_admin:
+            return queryset
+        
+        # Verificar perfil
+        if not hasattr(user, 'userprofile'):
+            return queryset.none()
+        
+        profile = user.userprofile
+        
+        # Si no requiere restricción, ver TODO
+        if not profile.require_warehouse_access:
+            return queryset
+        
+        # Filtrar por almacenes asignados
+        almacenes_ids = profile.almacenes_asignados.values_list('id', flat=True)
+        return queryset.filter(almacen_id__in=almacenes_ids)
 
 class TriggerSyncAPIView(APIView):
     """
@@ -299,7 +425,6 @@ class TriggerSyncAPIView(APIView):
             logger.error(f"Error al encolar la tarea: {e}", exc_info=True)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 class TransferenciaViewSet(mixins.ListModelMixin,
                            mixins.RetrieveModelMixin,
                            viewsets.GenericViewSet):
@@ -308,21 +433,48 @@ class TransferenciaViewSet(mixins.ListModelMixin,
     - Lista (GET) con filtros potentes.
     - Detalle (GET /<id>/) para cualquier estado.
     - Recibir (POST /<id>/recibir/) para transferencias 'EN_TRANSITO'.
+    Requiere permiso para gestionar stock.
+    
+    Los operadores solo verán transferencias que involucren sus almacenes asignados
+    (como origen o destino).
+    Los gerentes verán todas las transferencias.
     """
     serializer_class = TransferenciaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanManageStock]
 
-    # --- CAMBIO CLAVE #1: Queryset sin filtro de estado ---
+    # --- CAMBIO CLAVE #1: Queryset sin filtro de estado + filtrado por almacenes ---
     def get_queryset(self):
         """
-        ¡CORREGIDO!
-        Ya no filtra por 'EN_TRANSITO' aquí.
-        Devuelve TODAS las transferencias para que el filtro y la vista de
-        detalle (retrieve) funcionen para CUALQUIER estado.
+        Devuelve TODAS las transferencias filtradas por acceso a almacenes.
+        Operadores solo ven transferencias donde el origen o destino es uno de sus almacenes.
+        Gerentes ven todas las transferencias.
         """
-        return Transferencia.objects.select_related(
+        user = self.request.user
+        queryset = Transferencia.objects.select_related(
             'empresa', 'almacen_origen', 'almacen_destino', 'producto'
-        ).order_by('-fecha_envio')  # Mantenemos el orden por defecto
+        ).order_by('-fecha_envio')
+        
+        # SystemAdmin ve todo
+        if hasattr(user, 'is_system_admin') and user.is_system_admin:
+            return queryset
+        
+        # Verificar perfil
+        if not hasattr(user, 'userprofile'):
+            return queryset.none()
+        
+        profile = user.userprofile
+        
+        # Si no requiere restricción, ver TODO
+        if not profile.require_warehouse_access:
+            return queryset
+        
+        # Filtrar por almacenes asignados (origen O destino)
+        almacenes_ids = list(profile.almacenes_asignados.values_list('id', flat=True))
+        from django.db.models import Q
+        return queryset.filter(
+            Q(almacen_origen_id__in=almacenes_ids) | 
+            Q(almacen_destino_id__in=almacenes_ids)
+        )
 
     # --- ¡AÑADIDO! ---
     # Habilitamos los filtros de DRF
@@ -347,12 +499,14 @@ class TransferenciaViewSet(mixins.ListModelMixin,
     ordering_fields = ['fecha_envio', 'estado', 'producto__codigo_producto']
     ordering = ['-fecha_envio']  # Orden por defecto
 
-    # --- CAMBIO CLAVE #2: Acción 'recibir' limpia ---
+    # --- CAMBIO CLAVE #2: Acción 'recibir' limpia con validación de acceso ---
     @action(detail=True, methods=['post'], serializer_class=RecepcionSerializer)
     def recibir(self, request, pk=None):  # <-- ¡ESTA ES LA FIRMA CORRECTA!
         """
         Endpoint para recibir mercadería de una transferencia.
         POST /api/almacen/transferencias/{id}/recibir/
+        
+        Valida que el usuario tenga acceso al almacén destino.
         """
         transferencia = self.get_object()
 
@@ -362,8 +516,21 @@ class TransferenciaViewSet(mixins.ListModelMixin,
                 {'error': f'Esta transferencia ya fue procesada (Estado: {transferencia.get_estado_display()}).'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # 2. Validar acceso al almacén destino (solo para operadores)
+        user = request.user
+        if not (hasattr(user, 'is_system_admin') and user.is_system_admin):
+            if hasattr(user, 'userprofile'):
+                profile = user.userprofile
+                if profile.require_warehouse_access:
+                    almacenes_ids = profile.almacenes_asignados.values_list('id', flat=True)
+                    if transferencia.almacen_destino_id not in almacenes_ids:
+                        return Response(
+                            {'error': 'No tiene acceso al almacén destino para recibir esta transferencia.'},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
 
-        # 2. Validar el body del request
+        # 3. Validar el body del request
         serializer = RecepcionSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -373,7 +540,7 @@ class TransferenciaViewSet(mixins.ListModelMixin,
         notas = datos.get('notas_recepcion', '')
 
         try:
-            # 3. Llamar a la lógica de negocio en el MODELO
+            # 4. Llamar a la lógica de negocio en el MODELO
             exito = transferencia.recibir_mercaderia(
                 cantidad_recibida=cantidad_recibida,
                 fecha_recepcion=timezone.now(),  # <-- La fecha se define y pasa AQUÍ
@@ -384,7 +551,7 @@ class TransferenciaViewSet(mixins.ListModelMixin,
             if not exito:
                 return Response({"error": "La transferencia ya fue procesada."}, status=status.HTTP_409_CONFLICT)
 
-            # 4. Devolver la transferencia actualizada
+            # 5. Devolver la transferencia actualizada
             updated_serializer = TransferenciaSerializer(
                 transferencia,
                 context=self.get_serializer_context()
@@ -423,7 +590,6 @@ class TransferenciaViewSet(mixins.ListModelMixin,
         except Exception as e:
             logger.error(f"Error al REVERTIR transferencia {pk}: {e}", exc_info=True)
             return Response({"error": f"Error al revertir: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class CheckSyncStatusAPIView(APIView):
     """
@@ -507,13 +673,16 @@ class CheckSyncStatusAPIView(APIView):
         #print("[CheckStatus] No se encontraron tareas activas para este usuario.", flush=True)
         return Response({"is_syncing": False}, status=status.HTTP_200_OK)
 
-
 class KardexReportView(APIView):
     """
     Endpoint DETALLADO para obtener el reporte de Kárdex.
     Calcula el historial, puede ser más lento.
     ¡AHORA ACEPTA MÚLTIPLES 'producto_id' EN LOS QUERY PARAMS!
+    
+    Los operadores solo pueden generar Kardex de sus almacenes asignados.
+    Los gerentes pueden generar Kardex de cualquier almacén.
     """
+    permission_classes = [IsAuthenticated, CanViewWarehouse]
 
     def get(self, request, *args, **kwargs):
         try:
@@ -544,6 +713,24 @@ class KardexReportView(APIView):
                 {'error': f'Parámetros inválidos: {e}. Asegúrate de enviar IDs numéricos y fechas YYYY-MM-DD.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # Validar acceso al almacén (solo para operadores)
+        user = request.user
+        if not (hasattr(user, 'is_system_admin') and user.is_system_admin):
+            if not hasattr(user, 'userprofile'):
+                return Response(
+                    {'error': 'Usuario sin perfil configurado.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            profile = user.userprofile
+            if profile.require_warehouse_access:
+                almacenes_ids = profile.almacenes_asignados.values_list('id', flat=True)
+                if almacen_id not in almacenes_ids:
+                    return Response(
+                        {'error': 'No tiene acceso a este almacén para generar el Kardex.'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
 
         try:
             nombre_empresa = "Empresa Desconocida"
@@ -583,12 +770,10 @@ class KardexReportView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-#vistas de estibaje
 class TipoEstibajeViewSet(viewsets.ModelViewSet):
     queryset = TipoEstibaje.objects.filter(state=True)  # Solo activos
     serializer_class = TipoEstibajeSerializer
     # filterset_fields = ['empresa'] # Si usas django-filter
-
 
 class RegistroEstibajeViewSet(viewsets.ModelViewSet):
     queryset = RegistroEstibaje.objects.all().order_by('-fecha_registro')
