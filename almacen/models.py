@@ -1002,9 +1002,9 @@ class RegistroEstibaje(base.models.BaseModel):
     Cabecera del servicio de estiba vinculado a un documento ERP.
     """
     TIPO_DOC_CHOICES = [
-        ('NI', 'Ingreso'),
-        ('GS', 'Salida'),
-        ('OT', 'Otro'),
+        ('I', 'Ingreso'),
+        ('S', 'Salida'),
+        ('O', 'Otro'),
     ]
 
     # --- RELACIÓN CON EMPRESA (CRÍTICO) ---
@@ -1012,10 +1012,17 @@ class RegistroEstibaje(base.models.BaseModel):
 
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
+    almacen = models.ForeignKey(
+        'Almacen',  # O el nombre de tu modelo de almacenes
+        on_delete=models.PROTECT,  # PROTECT evita borrar un almacén si tiene registros
+        related_name='estibajes',
+        verbose_name="Almacén de Operación"
+    )
+
     # --- DATOS DEL DOCUMENTO ERP ---
     tipo_documento = models.CharField(max_length=2, choices=TIPO_DOC_CHOICES)
     nro_documento = models.CharField(max_length=50, help_text="Número o Serie-Número del ERP")
-
+    fecha_operacion = models.DateField('fecha operacion', null=True, blank=True)
     # Guardamos snapshot de datos informativos para no depender de consultas vivas al ERP todo el tiempo
     #proveedor_cliente = models.CharField(max_length=200, null=True, blank=True)
     transportista_nombre = models.CharField(max_length=200, null=True, blank=True)

@@ -205,6 +205,7 @@ class DetalleEstibajeSerializer(serializers.ModelSerializer):
 class RegistroEstibajeSerializer(serializers.ModelSerializer):
     # Escritura anidada: Esperamos una lista de detalles en el JSON
     detalles = DetalleEstibajeSerializer(many=True)
+    empresa_nombre = serializers.CharField(source='empresa.razon_social', read_only=True)
 
     # Campos extra para mostrar info legible
     creado_por_nombre = serializers.CharField(source='creado_por.username', read_only=True)
@@ -215,9 +216,9 @@ class RegistroEstibajeSerializer(serializers.ModelSerializer):
             'id', 'empresa', 'tipo_documento', 'nro_documento',
             'transportista_nombre', 'transportista_ruc', 'placa_vehiculo', 'fecha_registro',
             'producto_nombre','total_sacos_procesados', 'costo_total_operacion',
-            'observaciones', 'creado_por', 'creado_por_nombre',
-            'detalles'
+            'observaciones', 'creado_por', 'creado_por_nombre','almacen','detalles','empresa_nombre','fecha_operacion'
         ]
+        read_only_fields = ['creado_por']
 
     def create(self, validated_data):
         """
@@ -233,7 +234,55 @@ class RegistroEstibajeSerializer(serializers.ModelSerializer):
             for detalle_data in detalles_data:
                 DetalleEstibaje.objects.create(registro=registro, **detalle_data)
 
-            # Opcional: Recalcular totales en cabecera si no confías en lo que manda el front
-            # registro.calcular_totales()
-
         return registro
+
+    def update(self, instance, validated_data):
+        detalles_data = validated_data.pop('detalles', [])
+
+        with transaction.atomic():
+            # 1. Actualizar campos de la Cabecera (RegistroEstibaje)
+            instance.empresa = validated_data.get('empresa', instance.empresa)
+            instance.almacen = validated_data.get('almacen', instance.almacen)
+            instance.tipo_documento = validated_data.get('tipo_documento', instance.tipo_documento)
+            instance.fecha_operacion = validated_data.get('fecha_operacion', instance.fecha_operacion)
+            instance.nro_documento = validated_data.get('nro_documento', instance.nro_documento)
+            instance.producto_nombre = validated_data.get('producto_nombre', instance.producto_nombre)
+            instance.transportista_nombre = validated_data.get('transportista_nombre', instance.transportista_nombre)
+            instance.placa_vehiculo = validated_data.get('placa_vehiculo', instance.placa_vehiculo)
+            instance.costo_total_operacion = validated_data.get('costo_total_operacion', instance.costo_total_operacion)
+            instance.total_sacos_procesados = validated_data.get('total_sacos_procesados',
+                                                                 instance.total_sacos_procesados)
+            instance.observaciones = validated_data.get('observaciones', instance.observaciones)
+            instance.save()
+
+            # 2. Lógica inteligente para los Detalles
+
+            # IDs que vienen del frontend (los que el usuario dejó en la tabla)
+            # Nota: Si es un detalle nuevo, no tendrá 'id' en el JSON.
+            detalles_ids_entrantes = [item.get('id') for item in detalles_data if item.get('id')]
+
+            # IDs que existen en la BD actualmente
+            detalles_existentes_ids = [d.id for d in instance.detalles.all()]
+
+            # A. BORRAR: Los que están en BD pero NO vinieron del frontend
+            for det_id in detalles_existentes_ids:
+                if det_id not in detalles_ids_entrantes:
+                    DetalleEstibaje.objects.filter(id=det_id).delete()
+
+            # B. ACTUALIZAR O CREAR
+            for detalle_item in detalles_data:
+                detalle_id = detalle_item.get('id', None)
+
+                if detalle_id:
+                    # Actualizar existente
+                    detalle_obj = DetalleEstibaje.objects.get(id=detalle_id, registro=instance)
+                    detalle_obj.tipo_estibaje = detalle_item.get('tipo_estibaje', detalle_obj.tipo_estibaje)
+                    detalle_obj.cantidad_sacos = detalle_item.get('cantidad_sacos', detalle_obj.cantidad_sacos)
+                    detalle_obj.precio_unitario = detalle_item.get('precio_unitario', detalle_obj.precio_unitario)
+                    detalle_obj.subtotal = detalle_item.get('subtotal', detalle_obj.subtotal)
+                    detalle_obj.save()
+                else:
+                    # Crear nuevo (agregado en la edición)
+                    DetalleEstibaje.objects.create(registro=instance, **detalle_item)
+
+        return instance
